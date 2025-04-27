@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <p>Dear {{ cert.full_name }},</p>
+    
+    {% if is_expired %}
+    <p style="color: red;">Your Digital Signature Certificate <strong>{{ cert.dsc_number }}</strong> 
+    expired on {{ cert.expiry_date|date:"F j, Y" }}.</p>
+    {% else %}
+    <p style="color: orange;">Your Digital Signature Certificate <strong>{{ cert.dsc_number }}</strong> 
+    will expire in {{ days_left }} days (on {{ cert.expiry_date|date:"F j, Y" }}).</p>
+    {% endif %}
+    
+    <p>Please renew it at your earliest convenience.</p>
+    
+    <p>Best regards,<br>
+    Your Company Name</p>
+</body>
+</html>

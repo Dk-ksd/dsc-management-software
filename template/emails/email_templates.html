@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+
+<div class="container my-5">
+    
+        <h2 class="fw-bold text-primary">
+            <i class="bi bi-envelope-fill me-2"></i>Email Management</h2>
+
+    <hr class="mb-4" />
+
+        <!-- Add this message display section -->
+        {% if messages %}
+        <div class="container">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mt-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <!-- Expired DSC Card -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Expired DSC Notification
+                    </h5>
+                    <span class="badge bg-white text-danger">{{ templates.0.get_template_type_display }}</span>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Subject:</h6>
+                    <p class="lead border-bottom pb-3">{{ templates.0.subject }}</p>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'edit_template' 'expired' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-2"></i>Edit Template
+                        </a>
+                        <a href="{% url 'send_notifications' 'expired' %}" class="btn btn-success">
+                            <i class="fas fa-paper-plane me-2"></i>Send Now
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        Last modified: {{ templates.0.last_modified|date:"M d, Y " }}
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expiring Soon DSC Card -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Expiring Soon DSC Notification
+                    </h5>
+                    <span class="badge bg-white text-warning">{{ templates.1.get_template_type_display }}</span>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Subject:</h6>
+                    <p class="lead border-bottom pb-3">{{ templates.1.subject }}</p>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'edit_template' 'expiring' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-2"></i>Edit Template
+                        </a>
+                        <a href="{% url 'send_notifications' 'expiring' %}" class="btn btn-success">
+                            <i class="fas fa-paper-plane me-2"></i>Send Now
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        Last modified: {{ templates.1.last_modified|date:"M d, Y " }}
+                        <!-- Last modified: {{ templates.1.last_modified|date:"M d, Y H:i" }} -->
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <i class="fas fa-info-circle me-2"></i>
+        Templates use variables: <code>{full_name}</code>, <code>{dsc_number}</code>, and <code>{expiry_date}</code> 
+        which will be replaced with actual values when sending.
+    </div>
+</div>
+
+<!-- Add this to your email_templates.html -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sendButtons = document.querySelectorAll('a[href*="send-notifications"]');
+        sendButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+            });
+        });
+    });
+
+    document.querySelectorAll('a[href*="send-notifications"]').forEach(button => {
+    button.addEventListener('click', function(e) {
+        if (!confirm('Are you sure you want to send these notifications?')) {
+            e.preventDefault();
+        }
+    });
+});
+    </script>
+{% endblock %}

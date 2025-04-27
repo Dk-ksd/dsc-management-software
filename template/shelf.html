@@ -1,0 +1,99 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block title %}
+    Manage Shelves
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Page Heading -->
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold text-primary">Shelf Management</h2>
+        <i class="lni lni-grid-alt fs-2 text-secondary"></i>
+    </div>
+    <hr class="mb-4" />
+
+    <!-- Messages Section -->
+    {% if messages %}
+        <div>
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Add/Edit Form -->
+    <div class="card shadow border-0 mb-5">
+        <div class="card-header bg-primary text-white">
+            <h5 class="m-0">Add Shelf Number</h5>
+        </div>
+        <div class="card-body">
+            <form action="" method="POST" class="row g-3">
+                {% csrf_token %}
+                <div class="col-md-12">
+                    <label for="id_shelf_no" class="form-label fw-bold text-secondary">Shelf Number:</label>
+                    {{ form.shelf_no }}
+                </div>
+
+                {% if form.errors %}
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <ul class="mb-0">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="lni lni-checkmark-circle"></i> Add
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shelf List -->
+    <h3 class="fw-bold text-primary">List of Shelves</h3>
+    <div class="row row-cols-1 row-cols-md-2 g-4 mt-4">
+        {% for d in shelf_data %}
+            <div class="col">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold text-secondary">{{ d.shelf_no }}</span>
+                        <div>
+                            <!-- Edit Button -->
+                            <a href="{% url 'edit_shelf' d.shelf_id %}" class="btn btn-sm btn-outline-primary me-2">
+                                <i class="lni lni-pencil"></i> Edit
+                            </a>
+
+                            <!-- Delete Button with Confirmation -->
+                            <!-- <a href="#" 
+                               class="btn btn-sm btn-outline-danger"
+                               onclick="if(confirm('Are you sure you want to delete this shelf?')) { document.getElementById('delete-form-{{ d.shelf_id }}').submit(); }">
+                                <i class="lni lni-trash-can"></i> Delete
+                            </a> -->
+
+                            <!-- Hidden Delete Form -->
+                            <form id="delete-form-{{ d.shelf_id }}" method="POST" action="{% url 'delete_shelf' d.shelf_id %}" style="display: none;">
+                                {% csrf_token %}
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

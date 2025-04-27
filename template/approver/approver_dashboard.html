@@ -1,0 +1,214 @@
+{% extends "approver/base_approver.html" %}
+
+{% block title %}Approver Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Header Section -->
+    <div class="dashboard-header mb-5 p-4 bg-light rounded-3 border-start border-5 border-primary">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="fw-bold text-primary mb-1">
+                    <i class="fas fa-clipboard-check me-2"></i>Approver Dashboard
+                </h1>
+                <div class="d-flex align-items-center">
+                    <p class="mb-0 text-muted">
+                        <i class="fas fa-user-circle me-2"></i>Welcome back, 
+                        <span class="text-dark fw-semibold">{{ request.user.username }}</span>
+                    </p>
+                    <span class="mx-3 text-muted">|</span>
+                    <p class="mb-0 text-muted">
+                        <i class="fas fa-calendar-alt me-2"></i>{% now "F j, Y" %}
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex">
+                <a href="{% url 'approval_history' %}" class="btn btn-primary d-flex align-items-center">
+                    <i class="fas fa-history me-2"></i>Approval History
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Alert Messages -->
+    {% if messages %}
+    <div class="mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+            <strong>{{ message.tags|title }}!</strong> {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4 mx-1">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">Filters</h6>
+            <button class="btn btn-sm btn-link text-primary" type="button" data-bs-toggle="collapse" 
+                    data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                <i class="fas fa-sliders-h "></i>
+            </button>
+        </div>
+        <div class="collapse show" id="filterCollapse">
+            <div class="card-body">
+                <form method="get" class="row g-3 mx-2">
+                    <div class="col-md-6">
+                        <label for="requester" class="form-label">Requester</label>
+                        <select id="requester" name="requester" class="form-select">
+                            <option value="">All Requesters</option>
+                            {% for user in requesters %}
+                            <option value="{{ user }}" {% if user == selected_requester %}selected{% endif %}>{{ user }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- <div class="col-md-4">
+                        <label class="form-label">View History</label>
+                        <a href="{% url 'approval_history' %}" class="btn btn-outline-primary d-block">
+                            <i class="fas fa-history me-1"></i> Go to Approval History
+                        </a>
+                    </div> -->
+                    <div class="col-md-6">
+                        <label class="form-label">Actions</label>
+                        <div class="d-flex">
+                            <button type="submit" class="btn btn-primary me-2 flex-grow-1">
+                                <i class="fas fa-filter me-1"></i> Apply
+                            </button>
+                            <a href="{% url 'approver_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i>
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Approvals Section -->
+    <div class="card shadow mx-1">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-warning bg-opacity-10">
+            <h6 class="m-0 font-weight-bold text-warning">
+                <i class="fas fa-hourglass-half me-1"></i> Pending Approvals
+                <span class="badge bg-warning rounded-pill ms-2">{{ pending_requests.paginator.count }}</span>
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if pending_requests %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr class="bg-warning bg-opacity-10">
+                            <th>DSC Details</th>
+                            <th>Request Info</th>
+                            <th>Usage Date</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in pending_requests %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <span class="badge bg-primary rounded-pill p-2">
+                                            <i class="fas fa-id-card"></i>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <strong class="d-block">{{ log.dsc_id.dsc_number }}</strong>
+                                        <small class="text-muted">{{ log.dsc_id.full_name }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong class="d-block">{{ log.requested_by.username }}</strong>
+                                    <small class="text-muted">
+                                        <span class="badge bg-info bg-opacity-10 text-info">
+                                            {{ log.form_name }}
+                                        </span>
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1">
+                                            {{ log.platform_name }}
+                                        </span>
+                                    </small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="far fa-calendar-alt text-muted me-2"></i>
+                                    {{ log.date_of_usage|date:"M d, Y" }}
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end">
+                                    <form method="POST" action="{% url 'approve_usage_log' log.log_id %}" class="me-2">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="fas fa-check me-1"></i> Approve
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{% url 'reject_usage_log' log.log_id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-times me-1"></i> Reject
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <nav aria-label="Pending requests pagination">
+                <ul class="pagination justify-content-center mt-3">
+                    {% if pending_requests.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}page=1" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}page={{ pending_requests.previous_page_number }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in pending_requests.paginator.page_range %}
+                        {% if num > pending_requests.number|add:-3 and num < pending_requests.number|add:3 %}
+                            <li class="page-item {% if num == pending_requests.number %}active{% endif %}">
+                                <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pending_requests.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}page={{ pending_requests.next_page_number }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}page={{ pending_requests.paginator.num_pages }}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5 class="text-gray-800">No pending approvals</h5>
+                <p class="text-muted">All requests have been processed</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

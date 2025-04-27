@@ -1,0 +1,44 @@
+{% if extra_fields %}
+<div class="extra-fields-section">
+    <h5 class="fw-bold text-secondary border-bottom pb-2 mt-4 mb-3">Additional Fields</h5>
+    <div class="row g-3">
+        {% for field in extra_fields %}
+        <div class="col-md-4 mb-3">
+            <label for="{{ field.field_name }}" class="form-label">
+                {{ field.label|default:field.field_name|title }}
+                {% if field.required %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            
+            {% if field.field_type == "text" %}
+                <input type="text" class="form-control" name="{{ field.field_name }}" 
+                       id="{{ field.field_name }}" value="{{ field.value|default:'' }}"
+                       {% if field.required %}required{% endif %}>
+            
+            {% elif field.field_type == "number" %}
+                <input type="number" class="form-control" name="{{ field.field_name }}" 
+                       id="{{ field.field_name }}" value="{{ field.value|default:'' }}"
+                       {% if field.required %}required{% endif %}>
+            
+            {% elif field.field_type == "date" %}
+                <input type="date" class="form-control" name="{{ field.field_name }}" 
+                       id="{{ field.field_name }}" value="{{ field.value|default:'' }}"
+                       {% if field.required %}required{% endif %}>
+            
+            {% elif field.field_type == "boolean" %}
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="{{ field.field_name }}" 
+                           id="{{ field.field_name }}" {% if field.value == 'True' or field.value == True %}checked{% endif %} value="true">
+                    <label class="form-check-label" for="{{ field.field_name }}">
+                        {{ field.label|default:field.field_name|title }}
+                    </label>
+                </div>
+            {% endif %}
+            
+            {% if field.help_text %}
+                <small class="form-text text-muted">{{ field.help_text }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

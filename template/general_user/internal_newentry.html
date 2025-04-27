@@ -1,0 +1,243 @@
+{% extends "general_user/base_general_user.html" %}
+
+{% block title %}New DSC Entry{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="fw-bold text-primary">New Internal DSC Entry</h2>
+        <i class="lni lni-add-files fs-2 text-secondary"></i>
+    </div>
+    <hr class="mb-4" />
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow border-0">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="lni lni-folder-add me-2 fs-4"></i>
+            <h5 class="m-0">Add New Internal DSC</h5>
+        </div>
+        <div class="card-body">
+            <form action="" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <h5 class="fw-bold text-secondary border-bottom pb-2 mb-3">Basic DSC Details</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">{{ form_new.license_period.label_tag }} {{ form_new.license_period }}
+                        <small class="text-danger">{{ form_new.license_period.errors }}</small>
+                    </div>      
+                    <div class="col-md-4">{{ form_new.dsc_class.label_tag }} {{ form_new.dsc_class }}
+                        <small class="text-danger">{{ form_new.dsc_class.errors }}</small>
+                    </div>         
+                    <div class="col-md-4">{{ form_new.issuing_auth.label_tag }} {{ form_new.issuing_auth }}
+                        <small class="text-danger">{{ form_new.issuing_auth.errors }}</small>
+                    </div>    
+                </div>
+
+                <div class="row g-3 mt-2">
+                    
+                    <div class="col-md-4">
+                        <label class="fw">User ID:</label>
+                        <input type="text" class="form-control" value="{{ request.user.username }}" readonly>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        {{ form_new.issued_date.label_tag }} 
+                        {{ form_new.issued_date }}
+                        <small class="text-danger">{{ form_new.issued_date.errors }}</small>
+                    </div>
+                    <div class="col-md-4">{{ form_new.type.label_tag }} {{ form_new.type }}
+                        <small class="text-danger">{{ form_new.type.errors }}</small>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    
+                </div>
+                
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">{{ form_new.dsc_number.label_tag }} {{ form_new.dsc_number }}</div>
+                    <div class="col-md-4">{{ form_new.full_name.label_tag }} {{ form_new.full_name }}</div>
+                    <div class="col-md-4">
+                        {{ form_new.password.label_tag }}
+                        <div class="input-group">
+                            {{ form_new.password }}
+                            <button type="button" class="btn btn-outline-secondary" id="togglePassword">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <small class="text-danger">{{ form_new.password.errors }}</small>
+                    </div>
+                    
+                </div>
+
+                <div class="row g-3 mt-2">
+                    
+                    <div class="col-md-4">{{ form_new.pan_no.label_tag }} {{ form_new.pan_no }}
+                        <small class="text-danger">{{ form_new.pan_no.errors }}</small>
+                    </div>
+                    <div class="col-md-4">{{ form_new.email_id.label_tag }} {{ form_new.email_id }}
+                        <small class="text-danger">{{ form_new.email_id.errors }}</small>
+                    </div>
+                    <div class="col-md-4">{{ form_new.phone_no.label_tag }} {{ form_new.phone_no }}
+                        <small class="text-danger">{{ form_new.phone_no.errors }}</small>
+                    </div>
+                    
+                </div>
+
+                <div class="row g-3 mt-2">
+                    
+                    <div class="col-md-4">{{ form_new.ref_name.label_tag }} {{ form_new.ref_name }}
+                        <small class="text-danger">{{ form_new.ref_name.errors }}</small>
+                    </div>
+                    <div class="col-md-4">{{ form_new.ref_contact.label_tag }} {{ form_new.ref_contact }}
+                        <small class="text-danger">{{ form_new.ref_contact.errors }}</small>
+                    </div>
+                </div>
+
+
+                <div class="row g-3 mt-2">
+                    
+                    <div class="col-md-12">{{ form_new.remarks.label_tag }} {{ form_new.remarks }}
+                        <small class="text-danger">{{ form_new.remarks.errors }}</small>
+                    </div>
+                    
+                </div>
+
+
+
+                <!-- ✅ Dynamic Extra Fields Section -->
+                {% include '_extra_fields.html' %}
+
+
+                <h5 class="fw-bold text-secondary border-bottom pb-2 mt-4 mb-3">Upload Documents</h5>
+                <div class="row g-3">
+                    <!-- Aadhar -->
+                    <div class="col-md-4">
+                        {{ form_docs.aadhar_path.label_tag }}
+                        <input type="file" name="aadhar_path" id="id_aadhar_path" class="form-control">
+                        <p class="text-muted"><small id="aadhar_label">
+                            {% if existing_files.aadhar_path %} Selected: {{ existing_files.aadhar_path }} {% else %} No file chosen {% endif %}
+                        </small></p>
+                        
+                    </div>
+
+                    <!-- PAN -->
+                    <div class="col-md-4">
+                        {{ form_docs.pan_path.label_tag }} 
+                        <input type="file" name="pan_path" id="id_pan_path" class="form-control">
+                        <p class="text-muted"><small id="pan_label">
+                            {% if existing_files.pan_path %} Selected: {{ existing_files.pan_path }} {% else %} No file chosen {% endif %}
+                        </small></p>  
+                    </div>
+
+                    <!-- PP Photo -->
+                    <div class="col-md-4">
+                        {{ form_docs.pp_path.label_tag }} 
+                        <input type="file" name="pp_path" id="id_pp_path" class="form-control">
+                        <p class="text-muted"><small id="pp_label">
+                            {% if existing_files.pp_path %} Selected: {{ existing_files.pp_path }} {% else %} No file chosen {% endif %}
+                        </small></p>  
+                    </div>
+                </div>
+
+
+
+
+                <div class="text-end mt-4">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="lni lni-upload"></i> Upload & Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var today = new Date().toISOString().split("T")[0];
+        document.querySelector("input[name='issued_date']").setAttribute("max", today);
+
+        // Password Toggle Logic
+        const togglePassword = document.getElementById("togglePassword");
+        const passwordInput = document.getElementById("id_password");
+
+        togglePassword.addEventListener("click", function () {
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                this.innerHTML = '<i class="fas fa-eye-slash"></i>'; 
+            } else {
+                passwordInput.type = "password";
+                this.innerHTML = '<i class="fas fa-eye"></i>';
+            }
+        });
+
+        // ✅ Display selected file name for each file input field
+        function updateFileLabel(inputId, labelId) {
+            let fileInput = document.getElementById(inputId);
+            let label = document.getElementById(labelId);
+
+            fileInput.addEventListener("change", function () {
+                if (this.files.length > 0) {
+                    label.textContent = this.files[0].name;  // ✅ Show selected file name
+                } else {
+                    label.textContent = "No file chosen";
+                }
+            });
+        }
+
+        updateFileLabel("id_aadhar_path", "aadhar_label");
+        updateFileLabel("id_pan_path", "pan_label");
+        updateFileLabel("id_pp_path", "pp_label");
+
+        // ✅ Preserve file name after validation error
+        function restoreFileName(inputId, storedFileId, labelId) {
+            let storedFile = document.getElementById(storedFileId).value;
+            let label = document.getElementById(labelId);
+
+            if (storedFile) {
+                label.textContent = storedFile;  // ✅ Show previously selected file
+            }
+        }
+
+        restoreFileName("id_aadhar_path", "stored_aadhar_path", "aadhar_label");
+        restoreFileName("id_pan_path", "stored_pan_path", "pan_label");
+        restoreFileName("id_pp_path", "stored_pp_path", "pp_label");
+
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        function updateFileLabel(inputId, labelId) {
+            let fileInput = document.getElementById(inputId);
+            let label = document.getElementById(labelId);
+
+            fileInput.addEventListener("change", function () {
+                if (this.files.length > 0) {
+                    label.textContent = "Selected: " + this.files[0].name;  // ✅ Show selected file name
+                } else {
+                    label.textContent = "No file chosen";
+                }
+            });
+        }
+
+        updateFileLabel("id_aadhar_path", "aadhar_label");
+        updateFileLabel("id_pan_path", "pan_label");
+        updateFileLabel("id_pp_path", "pp_label");
+    });
+</script>
+
+
+{% endblock %}
+
+
+
+

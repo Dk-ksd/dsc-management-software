@@ -1,0 +1,525 @@
+{% extends "admin_dashboard.html" %}
+{% block title %}Usage Logs{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+
+        <h2 class="fw-bold text-primary"><i class="bi bi-clipboard"></i> Usage Logs</h2>
+
+    <hr>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- ✅ Create a New Usage Log -->
+    <div class="card shadow border-0">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="bi bi-plus-circle me-2 fs-4"></i>
+            <h5 class="m-0">Create a New Usage Log</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row g-3 mb-3">
+                    <!-- DSC ID - Enhanced Search -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">{{ form.dsc_id.label }}</label>
+                        <div class="dropdown">
+                            <input type="text" id="dsc_search" class="form-control dropdown-toggle" 
+                                   placeholder="Search DSC by number or name..."
+                                   data-bs-toggle="dropdown"
+                                   aria-haspopup="true"
+                                   aria-expanded="false"
+                                   autocomplete="off">
+                            <input type="hidden" name="dsc_id" id="dsc_id" required>
+                            
+                            <div class="dropdown-menu w-100" aria-labelledby="dsc_search" id="dsc_dropdown" style="max-height: 200px; overflow-y: auto;">
+                                <!-- <div class="dropdown-header">Available DSCs ({{ form.dsc_id.field.queryset.count }})</div> -->
+                                {% for dsc in form.dsc_id.field.queryset %}
+                                    <a class="dropdown-item" href="#" 
+                                       data-value="{{ dsc.dsc_id }}"
+                                       data-search="{{ dsc.dsc_number|lower }} {{ dsc.full_name|lower }}"
+                                       data-number="{{ dsc.dsc_number }}"
+                                       data-name="{{ dsc.full_name }}"
+                                       data-expiry="{{ dsc.expiry_date|date:'Y-m-d'|default:'' }}"
+                                       data-entities="{% for mapping in dsc.dscentity_set.all %}{{ mapping.entity.entity_name }}{% if not forloop.last %}, {% endif %}{% empty %}No entities{% endfor %}">
+                                        <div class="d-flex justify-content-between">
+                                            <span>{{ dsc.dsc_number }} - {{ dsc.full_name }}</span>
+                                            <small class="text-muted">{{ dsc.dsc_type.type_name }}</small>
+                                        </div>
+                                        <!-- <small class="text-muted d-block">Exp: {{ dsc.expiry_date|date:"d/m/Y"|default:"N/A" }}</small> -->
+                                    </a>
+                                {% empty %}
+                                    <a class="dropdown-item disabled" href="#">No DSCs available</a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <small class="text-danger">{{ form.dsc_id.errors }}</small>
+                        <div id="dsc_info" class="mt-2 p-2 bg-light rounded d-none">
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-bold" id="selected_dsc_number"></span>
+                                <span id="selected_dsc_expiry"></span>
+                            </div>
+                            <div class="small text-muted" id="selected_dsc_entities"></div>
+                        </div>
+                    </div>
+                    
+
+                    <!-- Form ID -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">{{ form.form_id.label }}</label>
+                        <select id="id_form_id" name="form_id" class="form-select">
+                            <option value="" disabled selected>Select Form</option>
+                            {% for form in form.form_id.field.queryset %}
+                                <option value="{{ form.pk }}">{{ form.form_name }}</option>
+                            {% endfor %}
+                            <option value="other">Other</option> <!-- ✅ "Other" option -->
+                        </select>
+                        <div id="form_other_div" class="mt-2 d-none">
+                            <!-- <label class="form-label">Other Form Name:</label> -->
+                            <input type="text" name="form_other" id="id_form_other" class="form-control" placeholder="Other Form Name">
+                        </div>
+                    </div>
+
+                    <!-- Platform ID -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">{{ form.platform_id.label }}</label>
+                        <select id="id_platform_id" name="platform_id" class="form-select">
+                            <option value="" disabled selected>Select Platform</option>
+                            {% for platform in form.platform_id.field.queryset %}
+                                <option value="{{ platform.pk }}">{{ platform.platform_name }}</option>
+                            {% endfor %}
+                            <option value="other">Other</option> <!-- ✅ "Other" option -->
+                        </select>
+                        <div id="platform_other_div" class="mt-2 d-none">
+                            <!-- <label class="form-label">Other Platform Name:</label> -->
+                            <input type="text" name="platform_other" id="id_platform_other" class="form-control" placeholder="Other Platform Name">
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <!-- Date of Usage -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">{{ form.date_of_usage.label }}</label>
+                        <input type="date" name="date_of_usage" id="id_date_of_usage" class="form-control"
+                               value="{{ form.date_of_usage.value|default:'' }}">
+                        <small class="text-danger">{{ form.date_of_usage.errors }}</small>
+                    </div>
+
+                    <!-- Approved By -->
+                    <!-- <div class="col-md-4">
+                        <label class="form-label fw-bold">{{ form.approved_by_user.label }}</label>
+                        <select name="approved_by_user" class="form-select">
+                            {% for user in form.approved_by_user.field.queryset %}
+                                <option value="{{ user.id }}">{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-danger">{{ form.approved_by_user.errors }}</small>
+                    </div> -->
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="bi bi-save"></i> Save Usage Log
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <br><br>
+    <!-- Usage Logs History Section -->
+    <div class="card shadow border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h3 class="text-primary fw-bold m-0"><i class="bi bi-clock-history"></i> Usage Logs History</h3>
+            
+            <!-- Search and Filter Section -->
+            <div class="d-flex">
+                <form method="GET" class="d-flex align-items-center">
+                    <!-- Quick Search -->
+                    <div class="input-group me-3" style="width: 250px;">
+                        <input type="text" name="search" class="form-control" placeholder="Search logs..." 
+                            value="{{ request.GET.search }}">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Status Filter -->
+                    <select name="status" class="form-select me-3" style="width: 150px;">
+                        <option value="">All Statuses</option>
+                        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                    
+                    <!-- Date Range Filter -->
+                    <div class="input-group me-3" style="width: 300px;">
+                        <input type="date" name="start_date" class="form-control" 
+                            value="{{ request.GET.start_date }}" placeholder="From">
+                        <span class="input-group-text">to</span>
+                        <input type="date" name="end_date" class="form-control" 
+                            value="{{ request.GET.end_date }}" placeholder="To">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-funnel"></i> Apply
+                    </button>
+                    <a href="{% url 'usage_logs' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>DSC Number</th>
+                            <!-- <th>Full Name</th> -->
+                            <th>Form</th>
+                            <th>Platform</th>
+                            <th>Usage Date</th>
+                            <th>Requested By</th>
+                            <th>Approved By</th>
+                            <th>Status</th>
+                            
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in usage_logs_data %}
+                        <tr>
+                            <td class="fw-bold">{{ log.dsc_id.dsc_number }}</td>
+                            <!-- <td> {{ log.dsc_id.full_name }}</td> -->
+                            <td>{{ log.form_name }}</td>
+                            <td>{{ log.platform_name }}</td>
+                            <td>{{ log.date_of_usage|date:"d M Y" }}</td>
+                            <td>{{ log.requested_by.username }}</td>
+                            <td>
+                                {% if log.approved_by_user %}
+                                    {{ log.approved_by_user.username }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if log.approval_status == "pending" %}bg-warning
+                                    {% elif log.approval_status == "approved" %}bg-success
+                                    {% else %}bg-danger
+                                    {% endif %}">
+                                    {{ log.approval_status|title }}
+                                </span>
+                            </td>
+                            <!-- <td>
+                                <div class="d-flex">
+                                    <a href="{% url 'delete_usage_log' log.log_id %}" 
+                                    class="btn btn-sm btn-outline-danger me-2"
+                                    onclick="return confirm('Are you sure you want to delete this log?');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% if log.approval_status == "pending" %}
+                                    <a href="#" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-check-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td> -->
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-info-circle me-2"></i>No usage logs found
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination Section - Updated -->
+            {% if usage_logs_data.paginator.num_pages > 1 %}
+            <div class="card-footer bg-white py-3">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if usage_logs_data.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                                    <i class="bi bi-chevron-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ usage_logs_data.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in usage_logs_data.paginator.page_range %}
+                            {% if usage_logs_data.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > usage_logs_data.number|add:'-3' and num < usage_logs_data.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if usage_logs_data.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ usage_logs_data.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ usage_logs_data.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">
+                                    <i class="bi bi-chevron-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    </div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+            // DSC Search Functionality
+    const searchInput = document.getElementById('dsc_search');
+    const hiddenInput = document.getElementById('dsc_id');
+    const dropdownMenu = document.getElementById('dsc_dropdown');
+    const dropdownItems = dropdownMenu.querySelectorAll('.dropdown-item');
+    const dscInfoDiv = document.getElementById('dsc_info');
+    const selectedDscNumber = document.getElementById('selected_dsc_number');
+    const selectedDscExpiry = document.getElementById('selected_dsc_expiry');
+    const selectedDscEntities = document.getElementById('selected_dsc_entities');
+
+    // Filter dropdown items based on search input
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        dropdownItems.forEach(item => {
+            if (item.classList.contains('dropdown-header') || item.classList.contains('disabled')) return;
+            
+            const searchText = item.getAttribute('data-search');
+            if (searchText.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        // Show dropdown if there's text in the input
+        if (searchTerm.length > 0) {
+            bootstrap.Dropdown.getOrCreateInstance(searchInput).show();
+        }
+    });
+
+    // Handle DSC selection
+    dropdownItems.forEach(item => {
+        if (item.classList.contains('dropdown-header') || item.classList.contains('disabled')) return;
+        
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const dscNumber = this.getAttribute('data-number');
+            const dscName = this.getAttribute('data-name');
+            const expiryDate = this.getAttribute('data-expiry');
+            const entities = this.getAttribute('data-entities');
+            
+            // Set values
+            searchInput.value = `${dscNumber} - ${dscName}`;
+            hiddenInput.value = this.getAttribute('data-value');
+            
+            // Show DSC info
+            selectedDscNumber.textContent = `${dscNumber} - ${dscName}`;
+            selectedDscExpiry.textContent = expiryDate ? `Exp: ${new Date(expiryDate).toLocaleDateString()}` : 'Exp: N/A';
+            selectedDscEntities.textContent = `Entities: ${entities}`;
+            dscInfoDiv.classList.remove('d-none');
+            
+            // Hide dropdown
+            bootstrap.Dropdown.getOrCreateInstance(searchInput).hide();
+            
+            // Set today's date as default
+            document.getElementById('id_date_of_usage').valueAsDate = new Date();
+        });
+    });
+
+    // Toggle other fields
+    function toggleOtherField(dropdownId, otherFieldDiv, inputField) {
+        var dropdown = document.getElementById(dropdownId);
+        var otherField = document.getElementById(otherFieldDiv);
+        var inputField = document.getElementById(inputField);
+                
+        if (dropdown.value === "other") {
+            otherField.classList.remove("d-none");
+            inputField.required = true;
+        } else {
+            otherField.classList.add("d-none");
+            inputField.required = false;
+            inputField.value = "";
+        }
+    }
+        
+    document.getElementById("id_form_id").addEventListener("change", function() {
+        toggleOtherField("id_form_id", "form_other_div", "id_form_other");
+    });
+    document.getElementById("id_platform_id").addEventListener("change", function() {
+        toggleOtherField("id_platform_id", "platform_other_div", "id_platform_other");
+    });
+    
+        // Set today's date as default for date_of_usage
+    document.getElementById('id_date_of_usage').valueAsDate = new Date();
+});
+</script>
+
+
+<style>
+/* Custom styles for the DSC search dropdown */
+#dsc_dropdown {
+    max-height: 300px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+#dsc_dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+#dsc_dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#dsc_dropdown::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#dsc_dropdown::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.dropdown-item {
+    padding: 0.5rem 1rem;
+    white-space: normal;
+}
+
+.dropdown-header {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#dsc_info {
+    border-left: 3px solid #0d6efd;
+}
+    /* Custom styles to match your design */
+.card {
+    border-radius: 0.5rem;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+}
+    
+.table th {
+    white-space: nowrap;
+    background-color: #f8f9fa;
+}
+    
+    .badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+    
+    .bg-success {
+        background-color: #198754 !important;
+    }
+    
+    .bg-warning {
+        background-color: #ffc107 !important;
+    }
+    
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+    
+    .page-link {
+        color: #0d6efd;
+    }
+    
+    .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 992px) {
+        .card-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+        
+        .card-header form {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .card-header .input-group, 
+        .card-header select {
+            width: 100% !important;
+            margin-bottom: 0.5rem;
+        }
+    }
+    /* Add this to your style section */
+.card-footer {
+    border-top: 1px solid rgba(0,0,0,.125);
+    background-color: #f8f9fa !important;
+}
+
+.pagination {
+    margin: 0;
+}
+
+.page-item.active .page-link {
+    z-index: 3;
+    color: #fff;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.page-link {
+    position: relative;
+    display: block;
+    padding: 0.375rem 0.75rem;
+    color: #0d6efd;
+    text-decoration: none;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+</style>
+
+
+{% endblock %}

@@ -1,0 +1,293 @@
+{% extends "general_user/base_general_user.html" %}
+
+
+
+
+{% block content %}
+<div class="container my-4">
+    <div class="dashboard-header mb-4 p-4 bg-light rounded-3 border-start border-5 border-primary">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="fw-bold text-primary mb-1">
+                    <i class="bi bi-speedometer2 me-2"></i>General User Dashboard
+                </h1>
+                <div class="d-flex align-items-center">
+                    <p class="mb-0 text-muted">
+                        <i class="bi bi-person-circle me-2"></i>Welcome back, 
+                        <span class="text-dark fw-semibold">{{ request.user.username }}</span>
+                    </p>
+                    <span class="mx-3 text-muted">|</span>
+                    <p class="mb-0 text-muted">
+                        <i class="bi bi-calendar-check me-2"></i>{% now "F j, Y" %}
+                    </p>
+                </div>
+            </div>
+            <!-- <div class="d-flex">
+                <a href="{% url 'dsc_list' %}" class="btn btn-primary d-flex align-items-center">
+                    <i class="lni lni-list me-2"></i>View DSC List
+                </a>
+            </div> -->
+        </div>
+    </div>
+
+    <hr>
+        <!-- Messages Section -->
+        {% if messages %}
+        <div id="message-container">
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <!-- ✅ Statistics Overview -->
+    <div class="row g-4">
+        <div class="col-md-3">
+            <div class="card text-bg-danger shadow-sm stat-box" data-target="expiredTableSection">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Expired DSCs</h5>
+                    <p class="display-6">{{ expired_pending_renewal.count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-warning shadow-sm stat-box" data-target="notRenewingTableSection">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Not Renewing</h5>
+                    <p class="display-6">{{ expired_not_renewing.count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-info shadow-sm stat-box" data-target="expiringSoonTableSection">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Expiring Soon</h5>
+                    <p class="display-6">{{ upcoming_expiring.count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-bg-secondary shadow-sm stat-box" data-target="missingDetailsTableSection">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Missing Additional Details</h5>
+                    <p class="display-6">{{ missing_details.count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <!-- 🔎 Search & Scrollable Expired DSCs Table -->
+        <!-- 🔎 Search & Scrollable Expired DSCs Table -->
+        <div id="expiredTableSection"></div> 
+        <h3 class="text-danger mt-4"><i class="bi bi-exclamation-circle"></i> Expired DSCs Pending Renewal</h3>
+        <input type="text" class="form-control search-box" placeholder="🔍 Search DSC Number, Name, or Entity" data-table="expiredTable">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover table-bordered dsc-table" id="expiredTable">
+                <thead class="table-danger">
+                    <tr>
+                        <th>DSC Number</th>
+                        <th>Full Name</th>
+                        <th>Entity</th>
+                        <th>Action</th>
+                        <th>Move to Not Renewing</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dsc in expired_pending_renewal %}
+                    <tr>
+                        <td>{{ dsc.dsc_number }}</td>
+                        <td>{{ dsc.full_name }}</td>
+                        <td>
+                            {% for mapping in dsc.dscentity_set.all %}
+                                <span class="badge bg-info">{{ mapping.entity.entity_name }}</span>
+                            {% empty %}
+                                <span class="text-muted">No entities</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <a href="{% url 'general_user_renewal' %}?dsc_number={{ dsc.dsc_number }}" class="btn btn-success btn-sm">
+                                <i class="bi bi-arrow-clockwise"></i> Renew
+                            </a>
+                        </td>
+                        <td>
+                            <form method="POST" action="{% url 'general_user_mark_not_renewing' dsc.dsc_number %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="text" name="remarks" class="form-control form-control-sm d-inline w-auto" placeholder="Enter reason" required>
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-x-circle"></i> Move to Not Renewing
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">No expired DSCs pending renewal.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 🔎 Search & Scrollable Not Renewing Table -->
+        <div id="notRenewingTableSection"></div>  
+        <h3 class="text-warning mt-4"><i class="bi bi-x-octagon"></i> Expired DSCs Not Renewing</h3>
+        <input type="text" class="form-control search-box" placeholder="🔍 Search DSC Number, Name, or Entity" data-table="notRenewingTable">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover table-bordered dsc-table" id="notRenewingTable">
+                <thead class="table-warning">
+                    <tr>
+                        <th>DSC Number</th>
+                        <th>Full Name</th>
+                        <th>Entity</th>
+                        <th>Remarks</th>
+                        <th>Move to Pending Renewal</th>  <!-- ✅ Added this column -->
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dsc in expired_not_renewing %}
+                    <tr>
+                        <td>{{ dsc.dsc_number.dsc_number }}</td>
+                        <td>{{ dsc.dsc_number.full_name }}</td>
+                        <td>
+                            {% for mapping in dsc.dsc_number.dscentity_set.all %}
+                                <span class="badge bg-info">{{ mapping.entity.entity_name }}</span>
+                            {% empty %}
+                                <span class="text-muted">No entities</span>
+                            {% endfor %}
+                        </td>
+                        <td>{{ dsc.remarks }}</td>
+                        <td>
+                            <form method="POST" action="{% url 'general_user_mark_pending_renewal' dsc.dsc_number.dsc_number %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-arrow-return-left"></i> Move to Pending Renewal
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">No expired DSCs marked as 'Not Renewing'.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+
+
+        <!-- ✅ DSCs Expiring Soon Table -->
+        <div id="expiringSoonTableSection"></div>  
+        <h3 class="text-info mt-4"><i class="bi bi-calendar-event"></i> DSCs Expiring in the Next 30 Days</h3>
+        <input type="text" class="form-control search-box" placeholder="🔍 Search DSC Number, Name, or Entity" data-table="expiringSoonTable">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover table-bordered dsc-table" id="expiringSoonTable">
+                <thead class="table-info">
+                    <tr>
+                        <th>DSC Number</th>
+                        <th>Full Name</th>
+                        <th>Entity</th>
+                        <th>Expiry Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dsc in upcoming_expiring %}
+                    <tr>
+                        <td>{{ dsc.dsc_number }}</td>
+                        <td>{{ dsc.full_name }}</td>
+                        <td>
+                            {% for mapping in dsc.dscentity_set.all %}
+                                <span class="badge bg-info">{{ mapping.entity.entity_name }}</span>
+                            {% empty %}
+                                <span class="text-muted">No entities</span>
+                            {% endfor %}
+                        </td>
+                        <td>{{ dsc.expiry_date }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center">No DSCs expiring soon.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+
+  
+        <!-- ✅ DSCs with Missing Additional Details (With Status & Expiry Date) -->
+        <div id="missingDetailsTableSection"></div>  
+        <h3 class="text-secondary mt-4"><i class="bi bi-exclamation-triangle"></i> DSCs with Missing Additional Details</h3>
+        <input type="text" class="form-control search-box" placeholder="🔍 Search DSC Number, Name, or Entity" data-table="missingDetailsTable">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover table-bordered dsc-table" id="missingDetailsTable">
+                <thead class="table-secondary">
+                    <tr>
+                        <th>DSC Number</th>
+                        <th>Full Name</th>
+                        <th>Entity</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dsc in missing_details %}
+                    <tr>
+                        <td>{{ dsc.dsc_number }}</td>
+                        <td>{{ dsc.full_name }}</td>
+                        <td>
+                            {% for mapping in dsc.dscentity_set.all %}
+                                <span class="badge bg-info">{{ mapping.entity.entity_name }}</span>
+                            {% empty %}
+                                <span class="text-muted">No entities</span>
+                            {% endfor %}
+                        </td>
+                        <td>{{ dsc.expiry_date }}</td>
+                        <td>
+                            <span class="badge {% if dsc.status == 'Active' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ dsc.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">No DSCs with missing details.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+</div>
+
+<!-- ✅ JavaScript for Table Search -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        let searchInputs = document.querySelectorAll(".search-box");
+
+        searchInputs.forEach(input => {
+            input.addEventListener("keyup", function() {
+                let tableId = this.getAttribute("data-table");
+                let filter = this.value.toUpperCase();
+                let table = document.getElementById(tableId);
+                let rows = table.getElementsByTagName("tr");
+
+                for (let i = 1; i < rows.length; i++) {
+                    let rowText = rows[i].textContent.toUpperCase();
+                    rows[i].style.display = rowText.includes(filter) ? "" : "none";
+                }
+            });
+        });
+        document.querySelectorAll(".stat-box").forEach(box => {
+            box.addEventListener("click", function () {
+                let targetId = this.getAttribute("data-target");
+                let targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    window.scrollTo({
+                        top: targetSection.offsetTop - 80,
+                        behavior: "smooth"
+                    });
+                }
+            });
+        });
+
+
+    });
+</script>
+{% endblock %}

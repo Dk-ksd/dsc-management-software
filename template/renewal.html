@@ -1,0 +1,437 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block title %}DSC Renewal{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    
+        <h2 class="fw-bold text-primary">
+            <i class="bi bi-arrow-repeat me-2"></i>DSC Renewal</h2>
+        <!-- <i class="lni lni-reload fs-2 text-secondary"></i> -->
+    
+    <hr />
+
+    <!-- ✅ Display Messages -->
+    {% if messages %}
+        <div>
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+
+    <!-- ✅ Enhanced Scrollable Select Dropdown -->
+    <form method="GET" class="mb-4" id="search_form">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label for="dsc_select" class="fw-bold">Select DSC:</label>
+                <div class="dropdown">
+                    <input type="text" id="dsc_search" class="form-control dropdown-toggle" 
+                           placeholder="Type to search DSC by DSC number or name"
+                           data-bs-toggle="dropdown"
+                           aria-haspopup="true"
+                           aria-expanded="false"
+                           autocomplete="off">
+                    <input type="hidden" id="dsc_number" name="dsc_number" value="{{ request.GET.dsc_number }}">
+                    
+                    <div class="dropdown-menu w-100" aria-labelledby="dsc_search" id="dsc_dropdown" style="max-height: 300px; overflow-y: auto;">
+                        <div class="dropdown-header">DSC List ({{ dsc_numbers.count }} items)</div>
+                        {% for dsc in dsc_numbers %}
+                            <a class="dropdown-item" href="#" data-value="{{ dsc.dsc_number }}"
+                               data-search="{{ dsc.dsc_number|lower }} {{ dsc.full_name|lower }}">
+                                <div class="d-flex justify-content-between">
+                                    <span>{{ dsc.dsc_number }} - {{ dsc.full_name }}</span>
+                                    <small class="text-muted">{{ dsc.dsc_type.type_name }}</small>
+                                </div>
+                                <small class="text-muted d-block">Exp: {{ dsc.expiry_date|date:"d/m/Y"|default:"N/A" }}</small>
+                            </a>
+                        {% empty %}
+                            <a class="dropdown-item disabled" href="#">No DSCs found</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary mb-1" id="fetch_btn" {% if not request.GET.dsc_number %}disabled{% endif %}>
+                    <i class="bi bi-search"></i> Fetch Details
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- ✅ Dynamic Renewal Form -->
+    {% if dsc_form is not None %}
+    <div class="card shadow border-0">
+        <div class="card-header bg-success text-white">
+            <h5 class="m-0">Renewal Details ({{ dsc_form.instance.dsc_type.type_name }})</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- 🔹 DSC Details -->
+                <h5 class="fw-bold text-primary border-bottom pb-2">DSC Details</h5>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">{{ dsc_form.dsc_number.label_tag }} {{ dsc_form.dsc_number }}</div>
+                    <div class="col-md-4">{{ dsc_form.full_name.label_tag }} {{ dsc_form.full_name }}</div>
+                    <div class="col-md-4">{{ dsc_form.issued_date.label_tag }} {{ dsc_form.issued_date }}</div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">{{ dsc_form.license_period.label_tag }} {{ dsc_form.license_period }}</div>
+                    <div class="col-md-4">
+                        <label class="form">Password <span style="color: rgb(202, 51, 51);">*</span>:</label>
+                        <div class="input-group">
+                            {{ dsc_form.password }}
+                            <button class="btn btn-outline-secondary toggle-password" type="button">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                        <small class="text-danger">{{ dsc_form.password.errors }}</small>
+                    </div>                   
+                    
+                    <div class="col-md-4">
+                        <label class="fw">User ID :</label>
+                        <input type="text" class="form-control" value="{{ dsc_master.user_id }}" readonly>
+                    </div>
+                    
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-12">{{ dsc_form.remarks.label_tag }} {{ dsc_form.remarks }}</div>
+                </div>
+
+                <!-- 🔹 Internal & External Fields Section -->
+                <div id="internal-fields">
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">{{ dsc_form.pan_no.label_tag }} {{ dsc_form.pan_no }}
+                            
+                        </div>
+                        <div class="col-md-4">{{ dsc_form.dsc_class.label_tag }} {{ dsc_form.dsc_class }}</div>
+                        <div class="col-md-4">{{ dsc_form.issuing_auth.label_tag }} {{ dsc_form.issuing_auth }}</div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">{{ dsc_form.type.label_tag }} {{ dsc_form.type }}</div>
+                        <div class="col-md-4">{{ dsc_form.email_id.label_tag }} {{ dsc_form.email_id }}</div>
+                        <div class="col-md-4">{{ dsc_form.phone_no.label_tag }} {{ dsc_form.phone_no }}</div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">{{ dsc_form.ref_name.label_tag }} {{ dsc_form.ref_name }}</div>
+                        <div class="col-md-4">{{ dsc_form.ref_contact.label_tag }} {{ dsc_form.ref_contact }}
+                            {{ form_new.ref_contact.label_tag }} {{ form_new.ref_contact }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🔹 Additional Fields Section -->
+                {% if extra_fields_with_values %}
+                <div class="mt-4">
+                    <h5 class="fw-bold text-primary border-bottom pb-2">Additional Fields</h5>
+                    <div class="row g-3">
+                        {% for field in extra_fields_with_values %}
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ field.field_name }}" class="form-label">
+                                    {{ field.display_name }}
+                                    {% if field.is_required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                
+                                {% if field.field_type == "text" %}
+                                    <input type="text" class="form-control" 
+                                        name="{{ field.field_name }}" 
+                                        id="{{ field.field_name }}" 
+                                        value="{{ field.value }}"
+                                        {% if field.is_required %}required{% endif %}>
+
+                                {% elif field.field_type == "number" %}
+                                    <input type="number" class="form-control" 
+                                        name="{{ field.field_name }}" 
+                                        id="{{ field.field_name }}" 
+                                        value="{{ field.value }}"
+                                        {% if field.is_required %}required{% endif %}>
+
+                                {% elif field.field_type == "date" %}
+                                    <input type="date" class="form-control" 
+                                        name="{{ field.field_name }}" 
+                                        id="{{ field.field_name }}" 
+                                        value="{{ field.value }}"
+                                        {% if field.is_required %}required{% endif %}>
+
+                                {% elif field.field_type == "boolean" %}
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                            name="{{ field.field_name }}" 
+                                            id="{{ field.field_name }}" 
+                                            {% if field.value %}checked{% endif %}>
+                                        <label class="form-check-label" for="{{ field.field_name }}">
+                                            {{ field.display_name }}
+                                        </label>
+                                    </div>
+
+                                {% elif field.field_type == "select" %}
+                                    <select class="form-select" 
+                                            name="{{ field.field_name }}" 
+                                            id="{{ field.field_name }}"
+                                            {% if field.is_required %}required{% endif %}>
+                                        <option value="">-- Select --</option>
+                                        {% for choice in field.choices %}
+                                            <option value="{{ choice }}" 
+                                                {% if field.value == choice %}selected{% endif %}>
+                                                {{ choice }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 🔹 Uploaded Documents with Option to Update -->
+                <h5 class="fw-bold text-primary mt-4">Uploaded Documents</h5>
+                <div class="row">
+                    {% for doc in documents %}
+                        <div class="col-md-4">
+                            <label class="fw-bold">Aadhar:</label>
+                            {% if doc.aadhar_path %}
+                                <a href="{{ doc.aadhar_path.url }}" target="_blank">View Aadhar</a>
+                            {% endif %}
+                            <input type="file" name="aadhar_path" class="form-control mt-2">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="fw-bold">PAN:</label>
+                            {% if doc.pan_path %}
+                                <a href="{{ doc.pan_path.url }}" target="_blank">View PAN</a>
+                            {% endif %}
+                            <input type="file" name="pan_path" class="form-control mt-2">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="fw-bold">PP Photo:</label>
+                            {% if doc.pp_path %}
+                                <a href="{{ doc.pp_path.url }}" target="_blank">View PP Photo</a>
+                            {% endif %}
+                            <input type="file" name="pp_path" class="form-control mt-2">
+                        </div>
+                    {% empty %}
+                        <p class="text-danger">No documents available. Upload new documents if required.</p>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12 text-end mt-4">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="lni lni-reload"></i> Renew DSC
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initialize additional fields
+        function initializeAdditionalFields() {
+            // Set max date for date fields
+            let today = new Date().toISOString().split('T')[0];
+            document.querySelectorAll("input[type='date']").forEach(input => {
+                input.setAttribute("max", today);
+            });
+            
+            // Initialize boolean fields
+            document.querySelectorAll(".form-check-input").forEach(checkbox => {
+                checkbox.value = checkbox.checked ? "on" : "off";
+                checkbox.addEventListener("change", function() {
+                    this.value = this.checked ? "on" : "off";
+                });
+            });
+        }
+        
+        initializeAdditionalFields();
+
+
+        const searchInput = document.getElementById('dsc_search');
+        const hiddenInput = document.getElementById('dsc_number');
+        const dropdownMenu = document.getElementById('dsc_dropdown');
+        const dropdownItems = dropdownMenu.querySelectorAll('.dropdown-item');
+        const fetchBtn = document.getElementById('fetch_btn');
+        
+        // If we have a selected DSC, show it in the input
+        if (hiddenInput.value) {
+            const selectedItem = Array.from(dropdownItems).find(item => 
+                item.getAttribute('data-value') === hiddenInput.value
+            );
+            if (selectedItem) {
+                const mainText = selectedItem.querySelector('div span').textContent;
+                searchInput.value = mainText;
+            }
+        }
+
+        // Filter dropdown items based on search input
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            let visibleItems = 0;
+            
+            dropdownItems.forEach(item => {
+                if (item.classList.contains('dropdown-header')) return;
+                
+                const searchText = item.getAttribute('data-search');
+                if (searchText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                    visibleItems++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Show dropdown if there's text in the input
+            if (searchTerm.length > 0) {
+                bootstrap.Dropdown.getOrCreateInstance(searchInput).show();
+            }
+        });
+
+        // Handle item selection
+        dropdownItems.forEach(item => {
+            if (item.classList.contains('dropdown-header')) return;
+            
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const mainText = this.querySelector('div span').textContent;
+                searchInput.value = mainText;
+                hiddenInput.value = this.getAttribute('data-value');
+                fetchBtn.disabled = false;
+                bootstrap.Dropdown.getOrCreateInstance(searchInput).hide();
+            });
+        });
+
+        // Clear selection when input is cleared
+        searchInput.addEventListener('change', function() {
+            if (!this.value) {
+                hiddenInput.value = '';
+                fetchBtn.disabled = true;
+            }
+        });
+
+        // Keyboard navigation
+        searchInput.addEventListener('keydown', function(e) {
+            const visibleItems = Array.from(dropdownItems).filter(item => 
+                item.style.display !== 'none' && !item.classList.contains('dropdown-header')
+            );
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (visibleItems.length > 0) {
+                    visibleItems[0].focus();
+                }
+            }
+        });
+
+        // Initialize Bootstrap dropdown
+        const dropdown = new bootstrap.Dropdown(searchInput);
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdown.hide();
+            }
+        });
+
+        // Add hover effect for better UX
+        dropdownMenu.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+                this.style.cursor = 'pointer';
+            });
+            item.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+
+
+        // ✅ Show correct fields based on DSC type
+        let internalFields = document.getElementById("internal-fields");
+
+        function updateFormVisibility() {
+            let selectedOption = select.options[select.selectedIndex];
+            let dscType = selectedOption.getAttribute("data-type");
+
+            internalFields.style.display = dscType === "external" ? "block" : "block";
+        }
+
+        select.addEventListener("change", function() {
+            this.form.submit();
+            updateFormVisibility();
+        });
+
+        updateFormVisibility();
+
+        // ✅ Toggle Password Visibility
+        document.querySelectorAll(".toggle-password").forEach(button => {
+            button.addEventListener("click", function () {
+                let passwordField = this.previousElementSibling;
+                passwordField.type = passwordField.type === "password" ? "text" : "password";
+                this.innerHTML = passwordField.type === "password" ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+            });
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".toggle-password").forEach(button => {
+            button.addEventListener("click", function () {
+                let passwordField = this.previousElementSibling;
+                passwordField.type = passwordField.type === "password" ? "text" : "password";
+                this.innerHTML = passwordField.type === "password" ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+            });
+        });
+    });
+    </script>
+
+<style>
+    /* Custom styles for the scrollable dropdown */
+    #dsc_dropdown {
+        max-height: 300px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        white-space: normal;
+    }
+    
+    .dropdown-header {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    </style>
+    
+{% endblock %}

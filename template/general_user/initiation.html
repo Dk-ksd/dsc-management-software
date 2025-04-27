@@ -1,0 +1,307 @@
+{% extends "general_user/base_general_user.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="fw-bold text-primary">
+        <i class="bi bi-arrow-left-right me-2"></i>Initiate DSC Movement</h2>
+    <hr>
+
+    <!-- Messages Section -->
+    {% if messages %}
+        <div id="message-container">
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- ✅ Display Form Errors -->
+    {% if form.errors %}
+    <div class="alert alert-danger">
+        <ul>
+            {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                    <li>{{ field|title }}: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- ✅ Initiation Form -->
+    <form method="POST" action=""  class="card shadow border-0 p-4">
+        {% csrf_token %}
+
+
+        <!-- row 1 -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <!-- 🔹 DSC Number Selection (Scrollable Search Dropdown) -->
+                <label class="fw-bold mt-2">DSC Number:</label>
+                <div class="dropdown">
+                    <input type="text" id="dsc_search" class="form-control dropdown-toggle" 
+                        placeholder="Type to search DSC by number or name"
+                        data-bs-toggle="dropdown"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        autocomplete="off">
+                    <input type="hidden" name="dsc_number" id="dsc_number" required>
+                    
+                    <div class="dropdown-menu w-100" aria-labelledby="dsc_search" id="dsc_dropdown" style="max-height: 300px; overflow-y: auto;">
+                        <div class="dropdown-header">Available DSCs ({{ dsc_list.count }} items)</div>
+                        {% for dsc in dsc_list %}
+                            <a class="dropdown-item" href="#" 
+                            data-value="{{ dsc.dsc_number }}"
+                            data-search="{{ dsc.dsc_number|lower }} {{ dsc.full_name|lower }}"
+                            data-fullname="{{ dsc.full_name }}"
+                            data-expiry="{{ dsc.expiry_date|date:'d/m/Y'|default:'N/A' }}"
+                            data-entity="{% for mapping in dsc.dscentity_set.all %}{{ mapping.entity.entity_name }}{% if not forloop.last %}, {% endif %}{% empty %}No Entity{% endfor %}">
+                                <div class="d-flex justify-content-between">
+                                    <span>{{ dsc.dsc_number }} - {{ dsc.full_name }}</span>
+                                    <small class="text-muted">{{ dsc.dsc_type.type_name }}</small>
+                                </div>
+                                <small class="text-muted d-block">Exp: {{ dsc.expiry_date|date:"d/m/Y"|default:"N/A" }}</small>
+                            </a>
+                        {% empty %}
+                            <a class="dropdown-item disabled" href="#">No DSCs available</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <!-- 🔹 Improved Direction Selection -->
+                <label class="fw-bold mb-2">Direction:</label>
+                <div class="d-flex border rounded p-2">
+                    <div class="form-check me-4">
+                        <input class="form-check-input" type="radio" name="direction" id="direction_in" value="in" required>
+                        <label class="form-check-label d-flex align-items-center" for="direction_in">
+                            <span class="badge bg-success rounded-circle me-2" style="width: 16px; height: 16px;"></span>
+                            Incoming
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="direction" id="direction_out" value="out" required>
+                        <label class="form-check-label d-flex align-items-center" for="direction_out">
+                            <span class="badge bg-warning rounded-circle me-2" style="width: 16px; height: 16px;"></span>
+                            Outgoing
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- row 2 -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="fw-bold mt-2">Full Name:</label>
+                <input type="text" id="full_name" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-6">
+                <label class="fw-bold mt-2">Entity Name:</label>
+                <input type="text" id="entity_name" class="form-control" readonly>
+            </div>
+        </div>
+
+        <!-- row 3 -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="fw-bold mt-2">Expiry Date:</label>
+                <input type="text" id="expiry_date" class="form-control" readonly>
+            </div>
+
+            <div class="col-md-6">
+                <label class="fw-bold mt-2">Initiation Date & Time:</label>
+                <input type="datetime-local" name="initiation_datetime" class="form-control" required>
+            </div>
+        </div>
+
+        <!-- row 4 -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <!-- 🔹 Self/Other Selection -->
+                <label class="fw-bold mt-2">Name of the Person Asked for DSC:</label>
+                <select id="requester_type" name="requester_type" class="form-select">
+                    <option value="self">Self</option>
+                    <option value="other">Other</option>
+                </select>
+
+                <input type="text" name="requester_name" id="requester_name" class="form-control mt-2" placeholder="Enter name if Other" style="display: none;" required>
+
+                <!-- Hidden input to store the requester type -->
+                <input type="hidden" id="requester_type_value" name="requester_type_value" value="self">
+            </div>
+
+            <div class="col-md-6">
+                <label class="fw-bold mt-2">Remarks (If Any):</label>
+                <textarea name="initiation_remarks" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+
+
+        <!-- 🔹 Submit Button -->
+        <button type="submit" class="btn btn-primary mt-3">Initiate</button>
+    </form>
+
+    
+</div>
+
+<!-- ✅ JavaScript Fix for Auto-Fill Fields -->
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // DSC Search Dropdown Functionality
+        const searchInput = document.getElementById('dsc_search');
+        const hiddenInput = document.getElementById('dsc_number');
+        const dropdownMenu = document.getElementById('dsc_dropdown');
+        const dropdownItems = dropdownMenu.querySelectorAll('.dropdown-item');
+        const fullNameInput = document.getElementById('full_name');
+        const entityInput = document.getElementById('entity_name');
+        const expiryInput = document.getElementById('expiry_date');
+        
+        // Filter dropdown items based on search input
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            
+            dropdownItems.forEach(item => {
+                if (item.classList.contains('dropdown-header')) return;
+                
+                const searchText = item.getAttribute('data-search');
+                if (searchText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Show dropdown if there's text in the input
+            if (searchTerm.length > 0) {
+                bootstrap.Dropdown.getOrCreateInstance(searchInput).show();
+            }
+        });
+    
+        // Handle item selection
+        dropdownItems.forEach(item => {
+            if (item.classList.contains('dropdown-header')) return;
+            
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchInput.value = this.querySelector('div span').textContent;
+                hiddenInput.value = this.getAttribute('data-value');
+                fullNameInput.value = this.getAttribute('data-fullname');
+                entityInput.value = this.getAttribute('data-entity');
+                expiryInput.value = this.getAttribute('data-expiry');
+                bootstrap.Dropdown.getOrCreateInstance(searchInput).hide();
+            });
+        });
+    
+        // Initialize Bootstrap dropdown
+        const dropdown = new bootstrap.Dropdown(searchInput);
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdown.hide();
+            }
+        });
+    
+        // Requester type toggle
+        document.getElementById("requester_type").addEventListener("change", function() {
+            var inputField = document.getElementById("requester_name");
+            var requesterTypeValue = document.getElementById("requester_type_value");
+        
+            if (this.value === "other") {
+                inputField.style.display = "block";
+                inputField.setAttribute("required", true);
+                inputField.value = "";
+                requesterTypeValue.value = "other";
+            } else {
+                inputField.style.display = "none";
+                inputField.removeAttribute("required");
+                inputField.value = "{{ user.username }}";
+                requesterTypeValue.value = "self";
+            }
+        });
+    
+        // Set default to "Self" on page load
+        if (document.getElementById("requester_type").value === "self") {
+            document.getElementById("requester_name").value = "{{ user.username }}";
+        }
+    
+        // Set current datetime as default for initiation
+        const now = new Date();
+        const timezoneOffset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - timezoneOffset)).toISOString().slice(0, 16);
+        document.querySelector('input[name="initiation_datetime"]').value = localISOTime;
+    });
+</script>
+    
+<style>
+    /* Custom styles for the scrollable dropdown */
+    #dsc_dropdown {
+        max-height: 300px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        white-space: normal;
+    }
+    
+    .dropdown-header {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    
+    /* Table styles */
+    .table th {
+        white-space: nowrap;
+    }
+    /* Improved radio button styles */
+    .form-check-input[type="radio"] {
+        width: 1.2em;
+        height: 1.2em;
+        margin-top: 0.1em;
+    }
+    
+    .form-check-label {
+        cursor: pointer;
+    }
+    
+    /* Direction selection container */
+    .d-flex.border {
+        transition: all 0.3s ease;
+    }
+</style>
+    
+
+{% endblock %}

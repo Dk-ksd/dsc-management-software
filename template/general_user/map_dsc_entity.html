@@ -1,0 +1,340 @@
+{% extends "general_user/base_general_user.html" %}
+{% block title %}Map DSC to Entity{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="fw-bold text-primary"><i class="bi bi-link"></i> Map DSC to Entities</h2>
+    <hr>
+
+    <!-- Debug Info (can be removed after testing) -->
+    <div class="alert alert-info d-none">
+        Debug Info:<br>
+        Items per page: {{ mappings.paginator.per_page }}<br>
+        Total items: {{ mappings.paginator.count }}<br>
+        Current page: {{ mappings.number }}<br>
+        Total pages: {{ mappings.paginator.num_pages }}
+    </div>
+
+    <!-- Display Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Card for Mapping DSC to Entity -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white fw-bold">
+            <i class="bi bi-plus-circle"></i> Select DSC & Entity
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="dsc_search" class="form-label fw-bold">DSC Number</label>
+                        <div class="dropdown">
+                            <input type="text" id="dsc_search" class="form-control dropdown-toggle" 
+                                   placeholder="Type to search DSC by number or name"
+                                   data-bs-toggle="dropdown"
+                                   aria-haspopup="true"
+                                   aria-expanded="false"
+                                   autocomplete="off"
+                                   value="{% if form.dsc_number.value %}{{ form.dsc_number.instance.dsc_number }}{% endif %}">
+                            <input type="hidden" name="dsc_number" id="dsc_number" 
+                                   value="{% if form.dsc_number.value %}{{ form.dsc_number.value }}{% endif %}">
+                            
+                            <div class="dropdown-menu w-100" aria-labelledby="dsc_search" id="dsc_dropdown">
+                                <div class="dropdown-header">Available DSCs ({{ dsc_numbers.count }} items)</div>
+                                {% for dsc in dsc_numbers %}
+                                    <a class="dropdown-item" href="#" data-value="{{ dsc.pk }}" 
+                                       data-display="{{ dsc.dsc_number }} - {{ dsc.full_name }}"
+                                       data-search="{{ dsc.dsc_number|lower }} {{ dsc.full_name|lower }}">
+                                        <div class="d-flex justify-content-between">
+                                            <span>{{ dsc.dsc_number }} - {{ dsc.full_name }}</span>
+                                            <small class="text-muted">{{ dsc.dsc_type.type_name }}</small>
+                                        </div>
+                                    </a>
+                                {% empty %}
+                                    <a class="dropdown-item disabled" href="#">No DSCs available</a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% if form.dsc_number.errors %}
+                            <div class="text-danger">{{ form.dsc_number.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_entity" class="form-label fw-bold">Entity</label>
+                        {{ form.entity }}
+                        {% if form.entity.errors %}
+                            <div class="text-danger">{{ form.entity.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success mt-3">
+                    <i class="bi bi-check-circle"></i> Map Entity
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mapped DSC-Entities Table -->
+    <h3 class="text-primary mt-4"><i class="bi bi-list-ul"></i> Mapped DSC-Entities</h3>
+
+    <!-- Select Entity Filter -->
+    <form method="GET" class="mb-3">
+        <label for="entityFilter" class="fw-bold">Filter by Entity:</label>
+        <select name="entity_id" id="entityFilter" class="form-select" onchange="this.form.submit()">
+            <option value="">-- Select Entity --</option>
+            {% for entity in entities %}
+                <option value="{{ entity.entity_id }}" {% if selected_entity_id|slugify == entity.entity_id|slugify %}selected{% endif %}>
+                    {{ entity.entity_name }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover table-bordered align-middle text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 20%;">DSC Number</th>
+                    <th style="width: 20%;">Full Name</th>
+                    <th style="width: 40%;">Entity</th>
+                    <th style="width: 15%;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mapping in mappings %}
+                <tr>
+                    <td class="fw-semibold">{{ mapping.dsc_number.dsc_number }}</td>
+                    <td>{{ mapping.dsc_number.full_name }}</td>
+                    <td>
+                        <span class="badge bg-info text-white" data-bs-toggle="tooltip" title="{{ mapping.entity.entity_name }}">
+                            {{ mapping.entity.entity_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="POST" action="{% url 'delete_mapping' mapping.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No mappings found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls - Now Visible -->
+    <!-- {% if mappings.paginator.num_pages > 1 %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if mappings.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page=1" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ mappings.previous_page_number }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in mappings.paginator.page_range %}
+                        {% if num >= mappings.number|add:-2 and num <= mappings.number|add:2 %}
+                            <li class="page-item {% if num == mappings.number %}active{% endif %}">
+                                <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if mappings.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ mappings.next_page_number }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ mappings.paginator.num_pages }}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %} -->
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // DSC Search Dropdown Functionality
+    const searchInput = document.getElementById('dsc_search');
+    const hiddenInput = document.getElementById('dsc_number');
+    const dropdownMenu = document.getElementById('dsc_dropdown');
+    const dropdownItems = dropdownMenu.querySelectorAll('.dropdown-item:not(.dropdown-header)');
+    
+    // Initialize with selected DSC if exists
+    if (hiddenInput.value) {
+        const selectedItem = Array.from(dropdownItems).find(item => 
+            item.getAttribute('data-value') === hiddenInput.value
+        );
+        if (selectedItem) {
+            searchInput.value = selectedItem.getAttribute('data-display');
+        }
+    }
+
+    // Filter dropdown items based on search input
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        dropdownItems.forEach(item => {
+            const searchText = item.getAttribute('data-search');
+            item.style.display = searchText.includes(searchTerm) ? 'block' : 'none';
+        });
+        
+        if (searchTerm.length > 0) {
+            bootstrap.Dropdown.getOrCreateInstance(searchInput).show();
+        }
+    });
+
+    // Handle item selection
+    dropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            searchInput.value = this.getAttribute('data-display');
+            hiddenInput.value = this.getAttribute('data-value');
+            bootstrap.Dropdown.getOrCreateInstance(searchInput).hide();
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            bootstrap.Dropdown.getOrCreateInstance(searchInput).hide();
+        }
+    });
+
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+
+<style>
+    /* Custom styles for the scrollable dropdown */
+    #dsc_dropdown {
+        max-height: 300px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+    
+    #dsc_dropdown::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+        white-space: normal;
+    }
+    
+    .dropdown-header {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    
+    /* Table styles */
+    .table th {
+        white-space: nowrap;
+    }
+    
+    /* Hover effects for dropdown items */
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    
+    /* Enhanced Pagination Styles */
+    .pagination {
+        margin: 20px 0;
+        display: flex;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+    }
+    
+    .page-link {
+        color: #0d6efd;
+        padding: 8px 16px;
+        border: 1px solid #dee2e6;
+        margin: 0 2px;
+        font-weight: 500;
+    }
+    
+    .page-link:hover {
+        background-color: #e9ecef;
+        color: #0a58ca;
+        text-decoration: none;
+    }
+    
+    .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .page-item {
+            margin: 2px;
+        }
+    }
+</style>
+{% endblock %}

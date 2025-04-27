@@ -1,0 +1,188 @@
+{% extends "approver/base_approver.html" %}
+
+{% block title %}Approval History{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fas fa-history text-primary me-2"></i>Approval History
+            </h1>
+            <p class="mb-0 text-muted">Review past approval decisions</p>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4 mx-1">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
+            <h6 class="m-0 font-weight-bold text-primary">Filters</h6>
+            <button class="btn btn-sm btn-link text-primary" type="button" data-bs-toggle="collapse" 
+                    data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                <i class="fas fa-sliders-h"></i>
+            </button>
+        </div>
+        <div class="collapse show" id="filterCollapse">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="requester" class="form-label">Requester</label>
+                        <select id="requester" name="requester" class="form-select">
+                            <option value="">All Requesters</option>
+                            {% for user in requesters %}
+                            <option value="{{ user }}" {% if user == selected_requester %}selected{% endif %}>{{ user }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select id="status" name="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="approved" {% if selected_status == 'approved' %}selected{% endif %}>Approved</option>
+                            <option value="rejected" {% if selected_status == 'rejected' %}selected{% endif %}>Rejected</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">From Date</label>
+                        <input type="date" id="date_from" name="date_from" class="form-control" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">To Date</label>
+                        <input type="date" id="date_to" name="date_to" class="form-control" value="{{ date_to }}">
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-filter me-1"></i> Apply Filters
+                        </button>
+                        <a href="{% url 'approval_history' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Clear
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approval History Table -->
+    <div class="card shadow mx-1">
+        <div class="card-body">
+            {% if processed_requests %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr class="bg-primary bg-opacity-10">
+                            <th>DSC Details</th>
+                            <th>Request Info</th>
+                            <th>Usage Date</th>
+                            <th>Approver</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in processed_requests %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <span class="badge bg-primary rounded-pill p-2">
+                                            <i class="fas fa-id-card"></i>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <strong class="d-block">{{ log.dsc_id.dsc_number }}</strong>
+                                        <small class="text-muted">{{ log.dsc_id.full_name }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong class="d-block">{{ log.requested_by.username }}</strong>
+                                    <small class="text-muted">
+                                        <span class="badge bg-info bg-opacity-10 text-info">
+                                            {{ log.form_name }}
+                                        </span>
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1">
+                                            {{ log.platform_name }}
+                                        </span>
+                                    </small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="far fa-calendar-alt text-muted me-2"></i>
+                                    {{ log.date_of_usage|date:"M d, Y" }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-user-shield text-muted me-2"></i>
+                                    {{ log.approved_by_user.username }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if log.approval_status == "approved" %}
+                                <span class="badge bg-success rounded-pill p-2">
+                                    <i class="fas fa-check-circle me-1"></i> Approved
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger rounded-pill p-2">
+                                    <i class="fas fa-times-circle me-1"></i> Rejected
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <nav aria-label="Processed requests pagination">
+                <ul class="pagination justify-content-center mt-3">
+                    {% if processed_requests.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page=1" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ processed_requests.previous_page_number }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in processed_requests.paginator.page_range %}
+                        {% if num > processed_requests.number|add:-3 and num < processed_requests.number|add:3 %}
+                            <li class="page-item {% if num == processed_requests.number %}active{% endif %}">
+                                <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if processed_requests.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ processed_requests.next_page_number }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if requester_filter %}requester={{ requester_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ processed_requests.paginator.num_pages }}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-info-circle fa-3x text-primary mb-3"></i>
+                <h5 class="text-gray-800">No approval history</h5>
+                <p class="text-muted">Approval actions will appear here</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

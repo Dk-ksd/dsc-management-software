@@ -1,0 +1,14 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block title %}
+    confirmation
+{% endblock %}    
+
+{% block content %}
+    <div class="alert alert-primary " role="alert">
+        <p class="text-center">DSC Renewed</p>
+    </div>
+
+    <a href="{% url 'renewal'%}" class="text-center">Go back</a> 
+    
+{% endblock %}

@@ -1,0 +1,371 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+::after,
+::before {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    text-decoration: none;
+}
+
+li {
+    list-style: none;
+}
+
+h1 {
+    font-weight: 600;
+    font-size: 1.5rem;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+}
+
+.wrapper {
+    display: flex;
+}
+
+.main {
+    min-height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    transition: all 0.35s ease-in-out;
+    background-color: #fafbfe;
+    margin-left: 70px; /* Add margin to prevent overlap */
+    transition: margin-left 0.25s ease-in-out; /* Smooth transition */
+    z-index: 999; /* Lower than the sidebar and dropdown */
+}
+#sidebar {
+    width: 73px;
+    min-width: 73px;
+    z-index: 1000;
+    transition: all .25s ease-in-out;
+    background-color: #0e2238;
+    display: flex;
+    flex-direction: column;
+    position: fixed; /* Make the sidebar fixed */
+    height: 100vh; /* Full viewport height */
+    top: 0;
+    left: 0;
+    overflow-y: auto; /* Allow sidebar content to scroll if it exceeds viewport height */
+    scroll-behavior: smooth;
+    
+}
+
+
+
+#sidebar.expand {
+    width: 260px;
+    min-width: 260px;
+}
+
+#sidebar {
+    overflow: visible; /* Allow dropdown to overflow */
+}
+
+.sidebar-nav {
+    overflow: visible; /* Allow dropdown to overflow */
+}
+.sidebar-footer {
+    margin-top: auto; /* Push the footer to the bottom */
+    padding: 1rem 0; /* Add some padding */
+}
+
+.toggle-btn {
+    background-color: transparent;
+    cursor: pointer;
+    border: 0;
+    padding: 1rem 1.5rem;
+}
+
+.toggle-btn i {
+    font-size: 1.5rem;
+    color: #FFF;
+}
+
+.sidebar-logo {
+    margin: auto 0;
+}
+
+.sidebar-logo a {
+    color: #FFF;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+#sidebar:not(.expand) .sidebar-logo,
+#sidebar:not(.expand) a.sidebar-link span {
+    display: none;
+}
+
+.sidebar-nav {
+    padding: 2rem 0;
+    flex: 1 1 auto;
+}
+
+a.sidebar-link {
+    padding: .625rem 1.625rem;
+    color: #FFF;
+    display: block;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-link i {
+    font-size: 1.1rem;
+    margin-right: .75rem;
+}
+
+a.sidebar-link:hover {
+    background-color: rgba(255, 255, 255, .075);
+    border-left: 3px solid #3b7ddd;
+}
+
+.sidebar-item {
+    position: relative;
+}
+
+#sidebar:not(.expand) .sidebar-item .sidebar-dropdown {
+    position: absolute;
+    top: 0;
+    left: 70px;
+    background-color: #0e2238;
+    padding: 0;
+    min-width: 15rem;
+    display: none;
+    height: fit-content;
+    min-height: fit-content;
+    border-radius: 10PX;
+    box-shadow: -6px 8px 15px rgb(41 109 206 / 28%);
+
+    /* problem ######################################## */
+}
+
+
+
+#sidebar:not(.expand) .sidebar-item:hover .has-dropdown+.sidebar-dropdown {
+    display: block;
+    max-height: 15em;
+    width: 100%;
+    opacity: 1;
+
+}
+
+#sidebar.expand .sidebar-link[data-bs-toggle="collapse"]::after {
+    border: solid;
+    border-width: 0 .075rem .075rem 0;
+    content: "";
+    display: inline-block;
+    padding: 2px;
+    position: absolute;
+    right: 1.5rem;
+    top: 1.4rem;
+    transform: rotate(-135deg);
+    transition: all .2s ease-out;
+    
+}
+
+#sidebar.expand .sidebar-link[data-bs-toggle="collapse"].collapsed::after {
+    transform: rotate(45deg);
+    transition: all .2s ease-out;
+}
+/* 🔹 Forms & Inputs */
+.form-container {
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    margin: auto;
+}
+
+/* 🔹 Ensure Consistent Field Width & Height */
+.form-control, select.form-control {
+    width: 100%;
+    height: 45px;
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #ced4da;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease-in-out;
+}
+
+/* 🔹 Make Textareas Uniform */
+textarea.form-control {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* 🔹 Input Focus Effect */
+.form-control:focus, select.form-control:focus {
+    border-color: #007bff;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+    outline: none;
+}
+
+/* 🔹 Labels */
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 15px;
+}
+
+/* 🔹 Form Row Structure */
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.form-group {
+    flex: 1;  /* Make form fields equal width */
+    min-width: 250px; /* Prevent items from shrinking too much */
+}
+
+/* 🔹 Submit Button */
+.btn-submit {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease-in-out;
+    width: 100%;
+    max-width: 200px;
+}
+
+.btn-submit:hover {
+    background: linear-gradient(90deg, #0056b3, #003f8c);
+    color: white;
+}
+
+/* 🔹 Buttons */
+.btn-primary {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    border: none;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(90deg, #0056b3, #004494);
+    color: white;
+}
+
+/* 🔹 Alerts */
+.alert {
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    border-radius: 5px;
+}
+
+/* 🔹 Card Styles */
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 🔹 Responsive Adjustments */
+@media (max-width: 768px) {
+    .form-row {
+        flex-direction: column;
+    }
+    .main {
+        margin-left: 70px;
+        width: calc(100% - 70px);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+.custom-choices .choices__inner {
+    border-radius: 5px;
+    padding: 5px 10px;
+    background: #f8f9fa;
+    border: 1px solid #ccc;
+}
+
+.custom-choices .choices__item {
+    background: #007bff;
+    color: #fff;
+    border-radius: 4px;
+    padding: 5px 10px;
+    margin: 3px;
+}
+
+.custom-choices .choices__item--selectable {
+    cursor: pointer;
+}
+
+
+
+
+
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table th, .table td {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+.btn-sm {
+    font-size: 14px;
+}
+
+.badge {
+    font-size: 14px;
+    padding: 6px 10px;
+}
+
+.alert {
+    border-radius: 5px;
+}
+
+.d-none {
+    display: none !important;
+}
+
+/* Extra fields section styling */
+.extra-fields-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+/* For boolean switches */
+.form-check-input {
+    width: 2.5em;
+    height: 1.5em;
+}
+

@@ -1,0 +1,191 @@
+{% extends "general_user/base_general_user.html" %}
+
+{% block title %}DSC Initialization Requests{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="fw-bold text-primary">
+        <i class="bi bi-list-check me-2"></i>DSC Movement History
+    </h2>
+
+<hr>
+
+    <!-- Simple Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">DSC Number</label>
+                    <input type="text" name="dsc_number" class="form-control" 
+                           placeholder="Search DSC number" value="{{ request.GET.dsc_number }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Completed</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Direction</label>
+                    <select name="direction" class="form-select">
+                        <option value="">All Directions</option>
+                        <option value="in" {% if request.GET.direction == 'in' %}selected{% endif %}>Incoming</option>
+                        <option value="out" {% if request.GET.direction == 'out' %}selected{% endif %}>Outgoing</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a href="{% url 'general_user_initiation_requests' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>DSC Number</th>
+                            <th>Full Name</th>
+                            <th>Requested By</th>
+                            <th>Initiated Direction</th>
+                            <th>Status</th>
+                            <th>Initiation Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in initiation_requests %}
+                        <tr>
+                            <td class="fw-bold">{{ request.dsc_number.dsc_number }}</td>
+                            <td>{{ request.dsc_number.full_name }}</td>
+                            <td>{{ request.requester_name }}</td>
+                            <td>
+                                <span class="badge bg-{% if request.direction == 'in' %}success{% else %}warning{% endif %}">
+                                    {{ request.get_direction_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if request.action_completed %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ request.initiation_date|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <a href="{% url 'general_user_request_details' request.in_out_id %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                   <i class="bi bi-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                <i class="bi bi-info-circle me-2"></i>No records found
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if initiation_requests.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if initiation_requests.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.dsc_number %}&dsc_number={{ request.GET.dsc_number }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.direction %}&direction={{ request.GET.direction }}{% endif %}">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ initiation_requests.previous_page_number }}{% if request.GET.dsc_number %}&dsc_number={{ request.GET.dsc_number }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.direction %}&direction={{ request.GET.direction }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in initiation_requests.paginator.page_range %}
+                        {% if initiation_requests.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > initiation_requests.number|add:'-3' and num < initiation_requests.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.dsc_number %}&dsc_number={{ request.GET.dsc_number }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.direction %}&direction={{ request.GET.direction }}{% endif %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if initiation_requests.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ initiation_requests.next_page_number }}{% if request.GET.dsc_number %}&dsc_number={{ request.GET.dsc_number }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.direction %}&direction={{ request.GET.direction }}{% endif %}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ initiation_requests.paginator.num_pages }}{% if request.GET.dsc_number %}&dsc_number={{ request.GET.dsc_number }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.direction %}&direction={{ request.GET.direction }}{% endif %}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* Consistent with your other pages */
+.card {
+    border-radius: 0.5rem;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+}
+
+.table th {
+    white-space: nowrap;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+}
+
+.bg-success {
+    background-color: #198754 !important;
+}
+
+.bg-warning {
+    background-color: #ffc107 !important;
+}
+
+.page-link {
+    color: #0d6efd;
+}
+
+.page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+</style>
+{% endblock %}

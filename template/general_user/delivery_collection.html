@@ -1,0 +1,266 @@
+{% extends "general_user/base_general_user.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="fw-bold text-primary">
+        <i class="bi bi-check2-circle"></i>
+        Deliver/Collect DSC</h2>
+    <hr>
+
+
+    <!-- Messages Section -->
+    {% if messages %}
+        <div id="message-container">
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- ✅ Display Form Errors -->
+    {% if form.errors %}
+    <div class="alert alert-danger">
+        <ul>
+            {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                    <li>{{ field|title }}: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- ✅ Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h4 class="card-title">Filter DSCs</h4>
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label for="direction" class="form-label fw-bold">Direction</label>
+                    <select name="direction" id="direction" class="form-select">
+                        <option value="">All Directions</option>
+                        <option value="in" {% if direction_filter == 'in' %}selected{% endif %}>Incoming</option>
+                        <option value="out" {% if direction_filter == 'out' %}selected{% endif %}>Outgoing</option>
+                    </select>
+                </div>
+                <!-- <div class="col-md-6">
+                    <label for="dsc_search" class="form-label fw-bold">Search DSC Number</label>
+                    <input type="text" name="dsc_search" id="dsc_search" class="form-control" 
+                           placeholder="Enter DSC number..." value="{{ dsc_search|default:'' }}">
+                </div> -->
+                <div class="col-md-2 d-flex align-items-end mx-4">
+                    <button type="submit" class="btn btn-primary me-2">Filter</button>
+                    <a href="{% url 'general_user_delivery_collection' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ✅ Selected DSC Information -->
+    <div id="selected-dsc-info" class="alert alert-info" style="display: none;">
+        <strong>Selected DSC:</strong> <span id="selected-dsc"></span>
+    </div>
+
+    <!-- ✅ Delivery/Collection Form (Hidden Initially) -->
+    <form method="POST" onsubmit="return validateForm()" id="deliveryForm" class="card shadow border-0 p-4" style="display: none;">
+        {% csrf_token %}
+        <input type="hidden" name="log_id" id="log_id">
+
+        
+
+        <!-- 🔹 Outgoing Fields -->
+        <div id="outgoing-section" style="display: none;">
+            <h4 class="fw-bold text-primary">Outgoing DSC</h4>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Collected By:</label>
+                    <input type="text" name="agent_name" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Collector’s Mobile Number:</label>
+                    <input type="text" name="agent_mob" class="form-control" required>                    
+                </div>
+            </div>                
+            
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Date:</label>
+                    <input type="date" name="action_date" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Time:</label>
+                    <input type="time" name="action_time" class="form-control" required>
+                </div>
+            </div>
+            
+            <div class="row g-3 mt-2">
+                <div class="col-md-12">
+                    <label class="fw-bold mt-2">Remarks:</label>
+                    <textarea name="action_remarks" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 🔹 Incoming Fields -->
+        <div id="incoming-section" style="display: none;">
+            <h4 class="fw-bold text-success">Incoming DSC</h4>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Given By:</label>
+                    <input type="text" name="agent_name" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Giver’s Mobile Number:</label>
+                    <input type="text" name="agent_mob" class="form-control" required>                  
+                </div>
+            </div>                
+            
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label class="fw-bold mt-2">Date:</label>
+                    <input type="date" name="action_date" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+            <label class="fw-bold mt-2">Time:</label>
+            <input type="time" name="action_time" class="form-control" required>
+                </div>
+            </div>
+            
+            <div class="row g-3 mt-2">
+                <div class="col-md-12">
+                    <label class="fw-bold mt-2">Remarks:</label>
+                    <textarea name="action_remarks" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 🔹 Submit Button -->
+        <div class="d-flex justify-content-end mt-4">
+            <button type="submit" class="btn btn-success px-4">
+                <i class="bi bi-send"></i> Mark as Delivered/Collected
+            </button>
+        </div>
+    </form>
+
+    <br>
+
+    <!-- ✅ Pending Deliveries/Collections -->
+    <h3 class="fw-bold">Pending Deliveries/Collections</h3>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th>DSC Number</th>
+                    <th>Requested By</th>
+                    <th>Initiation Date</th>
+                    <th>Initiated Direction</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in pending_logs %}
+                    {% if log.in_out_id and log.dsc_number and log.direction %}
+                    <tr id="row-{{ log.in_out_id }}">
+                        <td>{{ log.dsc_number }}</td>
+                        <td>{{ log.requester_name }}</td>
+                        <td>{{ log.initiation_date }}</td>
+                        <td>
+                            <span class="badge {% if log.initiated_direction == 'in' %}bg-success{% else %}bg-warning{% endif %}">
+                                {{ log.initiated_direction|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-primary btn-sm" 
+                                    onclick="selectLog('{{ log.in_out_id }}', '{{ log.dsc_number }}', '{{ log.direction }}')">
+                                Select
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-danger">⚠ Invalid Data: Missing Fields</td>
+                    </tr>
+                    {% endif %}
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No pending DSCs.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ✅ JavaScript for Form Validation & Selection -->
+<script>
+function selectLog(logId, dscNumber, direction) {
+    // Remove highlight from previous selection
+    document.querySelectorAll("tr.selected-row").forEach(row => {
+        row.classList.remove("selected-row");
+    });
+
+    // Highlight the selected row
+    let selectedRow = document.getElementById("row-" + logId);
+    selectedRow.classList.add("selected-row");
+
+    // ✅ Set the log_id for form submission
+    document.getElementById("log_id").value = logId;
+
+    // Display selected DSC info
+    document.getElementById("selected-dsc").innerText = dscNumber;
+    document.getElementById("selected-dsc-info").style.display = "block";
+
+    // ✅ Show the form only after selection
+    document.getElementById("deliveryForm").style.display = "block";
+
+    let incomingFields = document.querySelectorAll("#incoming-section input, #incoming-section textarea");
+    let outgoingFields = document.querySelectorAll("#outgoing-section input, #outgoing-section textarea");
+
+    if (direction === "in") {
+        // ✅ Show Incoming Section
+        document.getElementById("incoming-section").style.display = "block";
+        document.getElementById("outgoing-section").style.display = "none";
+
+        // ✅ Enable required for incoming fields, disable for outgoing
+        incomingFields.forEach(field => field.required = true);
+        outgoingFields.forEach(field => field.required = false);
+
+    } else {
+        // ✅ Show Outgoing Section
+        document.getElementById("incoming-section").style.display = "none";
+        document.getElementById("outgoing-section").style.display = "block";
+
+        // ✅ Enable required for outgoing fields, disable for incoming
+        incomingFields.forEach(field => field.required = false);
+        outgoingFields.forEach(field => field.required = true);
+    }
+}
+
+// ✅ Prevent form submission if no DSC is selected
+function validateForm() {
+    let logId = document.getElementById("log_id").value;
+    if (!logId) {
+        alert("❌ Please select a DSC before submitting.");
+        return false; // Prevent form submission
+    }
+    return true; // Allow form submission
+}
+</script>
+
+<!-- ✅ CSS for Highlighting Selected Row -->
+<style>
+.selected-row {
+    background-color: #d4edda !important; /* Light green for better visibility */
+}
+</style>
+{% endblock %}
