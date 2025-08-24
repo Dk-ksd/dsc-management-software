@@ -1,5 +1,16 @@
 # DSC Manager
 
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
+![Django](https://img.shields.io/badge/Django-5.1.6-green?logo=django)
+![SQLite](https://img.shields.io/badge/SQLite-3-lightblue?logo=sqlite)
+![Celery](https://img.shields.io/badge/Celery-5.4.0-%2300C7B7?logo=celery)
+![Redis](https://img.shields.io/badge/Redis-5.2.1-red?logo=redis)
+![Pandas](https://img.shields.io/badge/Pandas-2.2.3-%23150458?logo=pandas)
+![Numpy](https://img.shields.io/badge/Numpy-2.2.4-%23013243?logo=numpy)
+![OpenPyXL](https://img.shields.io/badge/OpenPyXL-3.1.5-3776AB)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?logo=bootstrap)
+![License](https://img.shields.io/badge/license-Custom-lightgrey)
+
 A Django-based web application developed for **Tass & Hamjit** to streamline the management and tracking of Digital Signature Certificates (DSCs). The system introduces a structured role-based access model with three user roles—**Admin**, **Approver**, and **General User**.
 
 ---
@@ -116,7 +127,9 @@ EMAIL_HOST_PASSWORD=your-app-password
 ##  Tech Stack
 
 * **Backend**: Django, SQLite
-* **Frontend**: Django Templates, Bootstrap
+* **Frontend**: HTML, CSS, JavaScript, Bootstrap
+* **Task Queue:** Celery with Redis
+* **Data Handling & Export:** Pandas, NumPy, OpenPyXL
 * **Email Notifications**: Django Email Backend (SMTP)
 * **Backup/Restore & Export**: Custom Django views + openpyxl
 
@@ -129,7 +142,18 @@ EMAIL_HOST_PASSWORD=your-app-password
 
 ---
 
-##  License
+## License & Usage
 
-This project was developed exclusively for **Tass & Hamjit**. Further usage/distribution should be approved by the company.
+This project was originally developed for **Tass & Hamjit**.  
+The source code is made available here **for educational and portfolio purposes only**.  
 
+ You may view and explore the code to understand the implementation.  
+ You may NOT use, copy, modify, or distribute this project for commercial or personal use without explicit permission.  
+
+If you are interested in a **customized DSC Manager** for your organization, feel free to reach out — the system can be tailored to meet your company’s needs.
+
+##  Contact
+
+For inquiries, customization, or collaboration:  
+ Email: mrdeekshithk@gmail.com  
+ LinkedIn: [Deekshith K](https://www.linkedin.com/in/deekshith-k123)
