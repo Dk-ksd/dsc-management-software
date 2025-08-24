@@ -13,6 +13,11 @@ def role_required(required_role):
             if not request.user.is_authenticated:
                 return redirect('login')  # Redirect to login if not authenticated
             
+            # Superusers bypass all role restrictions (for git only)
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+            ###
+
             if request.user.role != required_role:
                 return redirect_based_on_role(request.user)  # Redirect unauthorized users
             
@@ -22,7 +27,9 @@ def role_required(required_role):
 
 
 def redirect_based_on_role(user):
-    if user.role == 'admin':
+    if user.is_superuser:
+        return redirect('admin_dashboard')
+    elif user.role == 'admin':
         return redirect('admin_dashboard')
     elif user.role == 'general-user':
         return redirect('general_user_dashboard')

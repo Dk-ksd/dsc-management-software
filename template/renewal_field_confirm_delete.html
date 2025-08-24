@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h4><i class="lni lni-warning me-2"></i>Confirm Delete</h4>
+        </div>
+        <div class="card-body">
+            <p>Are you sure you want to delete the field <strong>"{{ object }}"</strong>?</p>
+            <p class="text-danger"><i class="lni lni-warning me-1"></i><strong>Warning:</strong> This will remove this field from all additional detail forms!</p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    <i class="lni lni-trash-can me-1"></i> Confirm Delete
+                </button>
+                <a href="{% url 'manage_renewal_fields' %}" class="btn btn-secondary">
+                    <i class="lni lni-close me-1"></i> Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

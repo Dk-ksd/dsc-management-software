@@ -1,0 +1,257 @@
+{% extends "general_user/base_general_user.html" %}
+
+{% block title %}DSC Renewal History - {{ dsc.dsc_number }}{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-primary">
+            <i class="bi bi-clock-history me-2"></i>Renewal History: {{ dsc.dsc_number }}
+        </h2>
+        <a href="{% url 'general_user_renewal' %}?dsc_number={{ dsc.dsc_number }}" class="btn btn-success">
+            <i class="bi bi-arrow-repeat me-1"></i> Renew Again
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="m-0">Renewal History ({{ history|length }} entries)</h5>
+        </div>
+        <div class="card-body">
+            {% if history %}
+            <div class="timeline">
+                {% for entry in history %}
+                <div class="timeline-item mb-4">
+                    <div class="timeline-header d-flex justify-content-between align-items-center bg-light p-3 rounded">
+                        <div>
+                            <h6 class="mb-0">Renewal #{{ forloop.revcounter }}</h6>
+                            <small class="text-muted">
+                                {{ entry.renewal_date|date:"d M Y H:i" }} by {{ entry.renewed_by.username }}
+                            </small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary toggle-details" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#details-{{ forloop.counter }}">
+                            <i class="bi bi-chevron-down"></i> Details
+                        </button>
+                    </div>
+                    
+                    <div id="details-{{ forloop.counter }}" class="collapse mt-2">
+                        <div class="card card-body">
+                            <!-- Field Changes Section -->
+                            <h6 class="text-primary mb-3">Field Changes:</h6>
+                            {% if entry.changes %}
+                            <div class="table-responsive mb-4">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Field</th>
+                                            <th>Old Value</th>
+                                            <th>New Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for change in entry.changes %}
+                                        <tr>
+                                            <td>{{ change.field }}</td>
+                                            <td>
+                                                {% if change.field == 'Password' %}
+                                                    ********
+                                                {% else %}
+                                                    {{ change.old|default:"-" }}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if change.field == 'Password' %}
+                                                    ********
+                                                {% else %}
+                                                    {{ change.new|default:"-" }}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No field changes detected</p>
+                            {% endif %}
+                            
+                            <!-- Document Changes Section -->
+                            <h6 class="text-primary mt-4 mb-3">Document Changes:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Document</th>
+                                            <th>Before</th>
+                                            <th>After</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Aadhar</td>
+                                            <td>
+                                                {% if entry.previous_documents.aadhar %}
+                                                    <a href="{{ entry.previous_documents.aadhar }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    None
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entry.new_documents.aadhar %}
+                                                    <a href="{{ entry.new_documents.aadhar }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    None
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entry.document_changes.aadhar == 'added' %}
+                                                    <span class="badge bg-success">Added</span>
+                                                {% elif entry.document_changes.aadhar == 'removed' %}
+                                                    <span class="badge bg-danger">Removed</span>
+                                                {% elif entry.document_changes.aadhar == 'modified' %}
+                                                    <span class="badge bg-warning text-dark">Modified</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Unchanged</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>PAN</td>
+                                            <td>
+                                                {% if entry.previous_documents.pan %}
+                                                    <a href="{{ entry.previous_documents.pan }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    None
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entry.new_documents.pan %}
+                                                    <a href="{{ entry.new_documents.pan }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    None
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entry.document_changes.pan == 'added' %}
+                                                    <span class="badge bg-success">Added</span>
+                                                {% elif entry.document_changes.pan == 'removed' %}
+                                                    <span class="badge bg-danger">Removed</span>
+                                                {% elif entry.document_changes.pan == 'modified' %}
+                                                    <span class="badge bg-warning text-dark">Modified</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Unchanged</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>PP Photo</td>
+                                            <td>
+                                                {% if entry.previous_documents.pp %}
+                                                    <a href="{{ entry.previous_documents.pp }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    None
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entry.new_documents.pp %}
+                                                    <a href="{{ entry.new_documents.pp }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                {% else %}
+                                                    None
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if entry.document_changes.pp == 'added' %}
+                                                    <span class="badge bg-success">Added</span>
+                                                {% elif entry.document_changes.pp == 'removed' %}
+                                                    <span class="badge bg-danger">Removed</span>
+                                                {% elif entry.document_changes.pp == 'modified' %}
+                                                    <span class="badge bg-warning text-dark">Modified</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Unchanged</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No renewal history found for this DSC.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 1.5rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background: #0d6efd;
+        border: 3px solid white;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle button text and icon
+        document.querySelectorAll('.toggle-details').forEach(button => {
+            button.addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (this.getAttribute('aria-expanded') === 'true') {
+                    icon.className = 'bi bi-chevron-down';
+                    this.innerHTML = '<i class="bi bi-chevron-down"></i> Details';
+                } else {
+                    icon.className = 'bi bi-chevron-up';
+                    this.innerHTML = '<i class="bi bi-chevron-up"></i> Hide';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

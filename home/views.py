@@ -1,7 +1,7 @@
 from django import forms
 from django.shortcuts import render
-from .forms import ClassForm, PlatformForm, IssuingAuthForm, EntityForm, LicenseForm, FormsForm, TypeForm,InOutForm,  DocsForm, ShelfForm, DSCRenewalForm,UsageLogsForm, DSCEntityForm, InitiationForm, DeliveryCollectionForm, InternalDSCForm, ExternalDSCForm, EditUserForm,EmailTemplateForm
-from .models import DSC_class,Platform, IssuingAuth, Entity, LicensePeriod, Forms, Type,InOut, DSCMaster, Docs, Shelf, DSCRenewal,UsageLogs, DSCEntity, CustomUser,DSCExtraField,DSCExtraData,EmailTemplate
+from .forms import ClassForm, PlatformForm, IssuingAuthForm, EntityForm, LicenseForm, FormsForm, TypeForm,InOutForm,  DocsForm, ShelfForm, DSCRenewalForm,UsageLogsForm, DSCEntityForm, InitiationForm, DeliveryCollectionForm, InternalDSCForm, ExternalDSCForm, EditUserForm,EmailTemplateForm,UnassignShelfForm,AssignShelfForm,BulkDSCUploadForm,BulkEntityUploadForm
+from .models import DSC_class,Platform, IssuingAuth, Entity, LicensePeriod, Forms, Type,InOut, DSCMaster, Docs, Shelf, DSCRenewal,UsageLogs, DSCEntity, CustomUser,DSCExtraField,DSCExtraData,EmailTemplate,ShelfAssignment,RenewalExtraField,DSCRenewalHistory
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
 from django.contrib import messages
@@ -42,6 +42,11 @@ from openpyxl import Workbook
 from django.apps import apps
 import pytz
 from datetime import datetime
+import re
+from django.db.models import OuterRef, Subquery
+from django.db.models.functions import Coalesce
+from itertools import chain
+from django.contrib.auth.decorators import login_required, user_passes_test
 # Create your views here.
 
 
@@ -494,7 +499,7 @@ def internal_newentry(request):
                 next_dsc_number = str(int(last_internal_dsc.dsc_number) + 1)
         else:
             # First entry
-            next_dsc_number = "INT-001"
+            next_dsc_number = "1500"
             
         # Initialize the field with auto-generated value
         form_new.fields['dsc_number'].initial = next_dsc_number
@@ -733,28 +738,6 @@ def delete_mapping(request, mapping_id):
 
 
 
-#docs
-# def docs(request):
-#         if request.method == 'POST':
-#             form = DocsForm(request.POST)
-#             if form.is_valid():
-#                 form.save()
-#                 return render(request, 'confirmnewentry.html')
-#             else:
-#                 # Return form with errors
-#                 return render(request, 'newentry.html', {
-#                     'form': form,
-#                     'docs_data': Docs.objects.all()
-#                 })
-
-#         form = Docs()
-#         docs_form = {
-#             'form' : form,
-#             'docs_data' : DSCMaster.objects.all(),
-#         }
-#         return render(request, 'newentry.html', docs_form)
-
-
 
 
 
@@ -791,10 +774,11 @@ def api_dsc_list(request):
     
     return JsonResponse(dsc_list, safe=False)
 
+# views.py
+
 @login_required
 @role_required('admin')
 def renewal(request):
-
     search_query = request.GET.get('search', '')
     dsc_number = request.GET.get('dsc_number')
     
@@ -811,17 +795,10 @@ def renewal(request):
             Q(phone_no__icontains=search_query)
         )
     
-    # Rest of your view code remains the same...
     dsc_master = None
     dsc_form = None
     doc_form = None
     documents = None
-    extra_fields_with_values = []
-
-    dsc_numbers = DSCMaster.objects.all()
-    dsc_form = None  
-    doc_form = None  
-    documents = None  
     extra_fields_with_values = []
 
     if request.method == 'POST':
@@ -833,11 +810,39 @@ def renewal(request):
         dsc_master = get_object_or_404(DSCMaster, dsc_number=dsc_number)
         old_password = dsc_master.password  
 
+        # Capture data before renewal for history
+        previous_data = {
+            'dsc_number': dsc_master.dsc_number,
+            'full_name': dsc_master.full_name,
+            'issued_date': dsc_master.issued_date.isoformat(),
+            'expiry_date': dsc_master.expiry_date.isoformat() if dsc_master.expiry_date else None,
+            'license_period': dsc_master.license_period.no_of_years if dsc_master.license_period else None,
+            'password': dsc_master.password,
+            'pan_no': dsc_master.pan_no,
+            'dsc_class': dsc_master.dsc_class.class_name if dsc_master.dsc_class else None,
+            'email_id': dsc_master.email_id,
+            'phone_no': dsc_master.phone_no,
+            'issuing_auth': dsc_master.issuing_auth.auth_name if dsc_master.issuing_auth else None,
+            'ref_name': dsc_master.ref_name,
+            'ref_contact': dsc_master.ref_contact,
+            'type': dsc_master.type,
+            'remarks': dsc_master.remarks,
+            'extra_fields': dsc_master.extra_fields,
+        }
+        
+        # Capture document info before renewal
+        current_docs = Docs.objects.filter(dsc_number=dsc_master).first()
+        previous_docs = {
+            'aadhar': current_docs.aadhar_path.url if current_docs and current_docs.aadhar_path else None,
+            'pan': current_docs.pan_path.url if current_docs and current_docs.pan_path else None,
+            'pp': current_docs.pp_path.url if current_docs and current_docs.pp_path else None,
+        }
+
         # Get extra fields for this DSC type
         extra_fields = DSCExtraField.objects.filter(
             Q(dsc_type=dsc_master.dsc_type.type_name.lower()) | Q(dsc_type="both"))
 
-        # ✅ Choose the correct form based on DSC type
+        # Choose the correct form based on DSC type
         if dsc_master.dsc_type.type_name.lower() == "internal":
             DscFormClass = InternalDSCForm
         else:
@@ -845,7 +850,7 @@ def renewal(request):
 
         dsc_form = DscFormClass(request.POST, instance=dsc_master)
         documents = Docs.objects.filter(dsc_number=dsc_master)
-        doc_form = DocsForm(request.POST, request.FILES)  # ✅ Handle new document uploads
+        doc_form = DocsForm(request.POST, request.FILES)
 
         if dsc_form.is_valid() and doc_form.is_valid():
             # Process extra fields - update both storage locations
@@ -868,12 +873,12 @@ def renewal(request):
             
             dsc_master.extra_fields = extra_data
 
-            # ✅ Handle password
+            # Handle password
             new_password = dsc_form.cleaned_data.get('password')
             if not new_password:
                 dsc_master.password = old_password
 
-            # ✅ Calculate new expiry date
+            # Calculate new expiry date
             new_issued_date = dsc_form.cleaned_data.get('issued_date')
             new_license_period = dsc_form.cleaned_data.get('license_period')
             new_expiry_date = new_issued_date + timedelta(days=new_license_period.no_of_years * 365)
@@ -881,29 +886,71 @@ def renewal(request):
             dsc_master.status = "Active" if new_expiry_date > now().date() else "Expired"
             dsc_master.save()
 
-            # ✅ Handle document updates
-            existing_docs = Docs.objects.filter(dsc_number=dsc_master).first()
-            if existing_docs:
+            # Handle document updates
+            new_docs = {}
+            if current_docs:
                 if 'aadhar_path' in request.FILES:
-                    existing_docs.aadhar_path = request.FILES['aadhar_path']
+                    current_docs.aadhar_path = request.FILES['aadhar_path']
                 if 'pan_path' in request.FILES:
-                    existing_docs.pan_path = request.FILES['pan_path']
+                    current_docs.pan_path = request.FILES['pan_path']
                 if 'pp_path' in request.FILES:
-                    existing_docs.pp_path = request.FILES['pp_path']
-                existing_docs.save()
+                    current_docs.pp_path = request.FILES['pp_path']
+                current_docs.save()
+                
+                new_docs = {
+                    'aadhar': current_docs.aadhar_path.url if current_docs.aadhar_path else None,
+                    'pan': current_docs.pan_path.url if current_docs.pan_path else None,
+                    'pp': current_docs.pp_path.url if current_docs.pp_path else None,
+                }
             else:
-                # ✅ If no previous documents exist, create a new entry
                 doc_instance = doc_form.save(commit=False)
                 doc_instance.dsc_number = dsc_master
                 doc_instance.save()
+                new_docs = {
+                    'aadhar': doc_instance.aadhar_path.url if doc_instance.aadhar_path else None,
+                    'pan': doc_instance.pan_path.url if doc_instance.pan_path else None,
+                    'pp': doc_instance.pp_path.url if doc_instance.pp_path else None,
+                }
 
-            # ✅ Remove DSC from "Not Renewing" category if mistakenly added
+            # Prepare new data for history
+            new_data = {
+                'dsc_number': dsc_form.cleaned_data.get('dsc_number'),
+                'full_name': dsc_form.cleaned_data.get('full_name'),
+                'issued_date': new_issued_date.isoformat(),
+                'expiry_date': new_expiry_date.isoformat(),
+                'license_period': new_license_period.no_of_years,
+                'password': new_password if new_password else old_password,
+                'pan_no': dsc_form.cleaned_data.get('pan_no'),
+                'dsc_class': dsc_form.cleaned_data.get('dsc_class').class_name if dsc_form.cleaned_data.get('dsc_class') else None,
+                'email_id': dsc_form.cleaned_data.get('email_id'),
+                'phone_no': dsc_form.cleaned_data.get('phone_no'),
+                'issuing_auth': dsc_form.cleaned_data.get('issuing_auth').auth_name if dsc_form.cleaned_data.get('issuing_auth') else None,
+                'ref_name': dsc_form.cleaned_data.get('ref_name'),
+                'ref_contact': dsc_form.cleaned_data.get('ref_contact'),
+                'type': dsc_form.cleaned_data.get('type'),
+                'remarks': dsc_form.cleaned_data.get('remarks'),
+                'extra_fields': extra_data,
+            }
+
+            # Create renewal history record
+            DSCRenewalHistory.objects.create(
+                dsc=dsc_master,
+                renewed_by=request.user,
+                previous_data=previous_data,
+                new_data=new_data,
+                previous_documents=previous_docs,
+                new_documents=new_docs
+            )
+
+            # Remove DSC from "Not Renewing" category if mistakenly added
             DSCRenewal.objects.filter(dsc_number=dsc_master, remarks__isnull=False).delete()
 
             messages.success(request, "✅ DSC renewed successfully!")
             return redirect('renewal')
         else:
             messages.error(request, "❌ Please fill in all required fields.")
+            print("Form Errors (dsc_form):", dsc_form.errors)
+            print("Form Errors (doc_form):", doc_form.errors)
 
     # Handle GET request
     dsc_number = request.GET.get('dsc_number')
@@ -945,7 +992,7 @@ def renewal(request):
                 'choices': field.get_FIELD_TYPE_CHOICES_display() if field.field_type == 'select' else []
             })
         
-        # ✅ Choose the correct form dynamically
+        # Choose the correct form dynamically
         if dsc_master.dsc_type.type_name.lower() == "internal":
             DscFormClass = InternalDSCForm
         else:
@@ -963,11 +1010,12 @@ def renewal(request):
         'doc_form': doc_form,
         'documents': documents,
         'extra_fields_with_values': extra_fields_with_values,
+        'history_count': DSCRenewalHistory.objects.filter(dsc=dsc_master).count() if dsc_master else 0,
     })
 
 
 
-
+from datetime import date as datetime_date  # Add this import at the top
 
 @login_required
 @role_required('admin')
@@ -976,8 +1024,9 @@ def additional_details(request):
     dsc_numbers = DSCMaster.objects.all()
     additional_form = None
     dsc_master = None
-    previous_additional_details = None  
- 
+    previous_additional_details = None
+    extra_fields_data = []
+
     if request.method == 'POST':
         dsc_number = request.POST.get('dsc_number') or request.POST.get('dsc_number_hidden')
 
@@ -1000,12 +1049,23 @@ def additional_details(request):
             additional_instance = additional_form.save(commit=False)
             additional_instance.dsc_number = dsc_master
 
-            # ✅ If explicitly marked as "Not Renewing", keep it there
-            if additional_instance.remarks and "not renewing" in additional_instance.remarks.lower():
-                additional_instance.save()
-            else:
-                # ✅ Remove from "Not Renewing" if mistakenly added
-                DSCRenewal.objects.filter(dsc_number=dsc_master, remarks__icontains="not renewing").delete()
+            # Save extra fields to JSON field with proper serialization
+            additional_instance.extra_fields = {}
+            for field in RenewalExtraField.objects.all():
+                field_name = field.field_name
+                if field_name in additional_form.cleaned_data:
+                    value = additional_form.cleaned_data[field_name]
+                    
+                    # Handle different field types
+                    if field.field_type == "boolean":
+                        value = bool(value)
+                    elif field.field_type == "date" and value:
+                        if isinstance(value, datetime_date):
+                            value = value.isoformat()  # Convert date to string
+                    elif value is None:
+                        continue
+                        
+                    additional_instance.extra_fields[field_name] = value
 
             additional_instance.save()
             messages.success(request, "✅ Additional details updated successfully!")
@@ -1020,8 +1080,34 @@ def additional_details(request):
 
             if latest_additional_instance:
                 additional_form = DSCRenewalForm(instance=latest_additional_instance)
+                # Deserialize dates from JSON
+                if latest_additional_instance.extra_fields:
+                    for field in RenewalExtraField.objects.filter(field_type='date'):
+                        if field.field_name in latest_additional_instance.extra_fields:
+                            date_str = latest_additional_instance.extra_fields[field.field_name]
+                            if date_str:
+                                try:
+                                    # Fixed: Use datetime_date.fromisoformat()
+                                    additional_form.initial[field.field_name] = datetime_date.fromisoformat(date_str)
+                                except (ValueError, TypeError):
+                                    pass
             else:
                 additional_form = DSCRenewalForm()
+
+            # Prepare extra fields data for template
+            if additional_form:
+                for field in RenewalExtraField.objects.all():
+                    try:
+                        extra_fields_data.append({
+                            'name': field.field_name,
+                            'field': additional_form[field.field_name],
+                            'label': field.label or field.field_name.replace('_', ' ').title(),
+                            'required': field.required,
+                            'help_text': field.help_text,
+                            'field_type': field.field_type  # Add field type to context
+                        })
+                    except KeyError:
+                        continue
 
         except DSCMaster.DoesNotExist:
             messages.error(request, f"❌ No DSC found with number {dsc_number}. Please try again.")
@@ -1032,7 +1118,44 @@ def additional_details(request):
         'additional_form': additional_form,
         'selected_dsc': dsc_master,
         'previous_additional_details': previous_additional_details,
+        'extra_fields_data': extra_fields_data,
     })
+
+
+class RenewalFieldListView(ListView):
+    model = RenewalExtraField
+    template_name = 'manage_renewal_fields.html'
+    context_object_name = 'extra_fields'
+    paginate_by = 10
+
+class RenewalFieldCreateView(CreateView):
+    model = RenewalExtraField
+    template_name = 'renewal_field_form.html'
+    fields = ['field_name', 'field_type', 'label', 'required', 'help_text']
+    success_url = reverse_lazy('manage_renewal_fields')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Field added successfully!")
+        return super().form_valid(form)
+
+class RenewalFieldUpdateView(UpdateView):
+    model = RenewalExtraField
+    template_name = 'renewal_field_form.html'
+    fields = ['field_name', 'field_type', 'label', 'required', 'help_text']
+    success_url = reverse_lazy('manage_renewal_fields')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Field updated successfully!")
+        return super().form_valid(form)
+
+class RenewalFieldDeleteView(DeleteView):
+    model = RenewalExtraField
+    template_name = 'renewal_field_confirm_delete.html'
+    success_url = reverse_lazy('manage_renewal_fields')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "Field deleted successfully!")
+        return super().delete(request, *args, **kwargs)
 
 
 # Usage Logs List and Form Submission
@@ -1354,7 +1477,9 @@ def logout_view(request):
 
 
 def redirect_based_on_role(user):
-    if user.role == 'admin':
+    if user.is_superuser:  # 🔹 Explicit check for Django superuser
+        return redirect('admin_dashboard')
+    elif user.role == 'admin':
         return redirect('admin_dashboard')
     elif user.role == 'general-user':
         return redirect('general_user_dashboard')
@@ -1419,7 +1544,6 @@ def admin_dashboard(request):
 
     # ✅ DSCs Missing Additional Details (No Entry in DSCRenewal)
     missing_details = DSCMaster.objects.filter(
-    Q(renewals__shelf_no__isnull=True) | 
     Q(renewals__gst_reg_date__isnull=True) | 
     Q(renewals__mca_reg_date__isnull=True) | 
     Q(renewals__it_reg_date__isnull=True)
@@ -1686,7 +1810,7 @@ def dsc_list(request):
         )
 
     # ✅ Pagination: Show 10 records per page
-    paginator = Paginator(dscs, 10)
+    paginator = Paginator(dscs, 15)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -1780,13 +1904,13 @@ class ExtraFieldListView(ListView):
 class ExtraFieldCreateView(CreateView):
     model = DSCExtraField
     template_name = 'extra_field_form.html'
-    fields = ['dsc_type', 'field_name', 'field_type', 'required']
+    fields = ['dsc_type', 'field_name', 'field_type', 'required', 'label']  
     success_url = reverse_lazy('manage_extra_fields')
 
 class ExtraFieldUpdateView(UpdateView):
     model = DSCExtraField
     template_name = 'extra_field_form.html'
-    fields = ['dsc_type', 'field_name', 'field_type', 'required']
+    fields = ['dsc_type', 'field_name', 'field_type', 'required', 'label']
     success_url = reverse_lazy('manage_extra_fields')
 
 class ExtraFieldDeleteView(DeleteView):
@@ -1912,6 +2036,58 @@ def send_notifications(request, notification_type):
     return redirect('email_templates')
 
 
+@login_required
+@user_passes_test(lambda u: u.role == 'admin')
+@user_passes_test(lambda u: u.role == 'admin')
+def remove_dscs(request):
+    # Get all DSCs ordered by creation (newest first)
+    all_dscs = DSCMaster.objects.all().order_by('-dsc_id')
+    
+    # Get the latest DSC ID
+    latest_dsc_id = all_dscs.first().dsc_id if all_dscs.exists() else None
+    
+    # Add pagination
+    paginator = Paginator(all_dscs, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'remove_dsc.html', {
+        'page_obj': page_obj,
+        'latest_dsc_id': latest_dsc_id,
+        'active_tab': 'remove_dsc'
+    })
+
+@login_required
+@user_passes_test(lambda u: u.role == 'admin')
+def confirm_delete_dsc(request, id):
+    dsc = get_object_or_404(DSCMaster, dsc_id=id)
+    latest_dsc = DSCMaster.objects.order_by('-dsc_id').first()
+    
+    return render(request, 'confirm_delete_dsc.html', {
+        'dsc': dsc,
+        'is_latest': dsc.dsc_id == latest_dsc.dsc_id if latest_dsc else False,
+        'active_tab': 'remove_dsc'
+    })
+
+@login_required
+@user_passes_test(lambda u: u.role == 'admin')
+def delete_dsc(request, id):
+    if request.method == 'POST':
+        dsc = get_object_or_404(DSCMaster, dsc_id=id)
+        latest_dsc_id = DSCMaster.objects.order_by('-dsc_id').values_list('dsc_id', flat=True).first()
+        
+        if dsc.dsc_id != latest_dsc_id:
+            messages.error(request, 'You can only delete the most recently added DSC.')
+            return redirect('remove_dscs')
+            
+        try:
+            dsc_number = dsc.dsc_number
+            dsc.delete()
+            messages.success(request, f'DSC {dsc_number} has been deleted successfully.')
+        except Exception as e:
+            messages.error(request, f'Error deleting DSC: {str(e)}')
+            
+    return redirect('remove_dscs')
 ####################################################################general user################################################################
 ################################################################################################################################################
 
@@ -1950,7 +2126,7 @@ def general_user_dashboard(request):
 
     # ✅ DSCs Missing Additional Details (No Entry in DSCRenewal)
     missing_details = DSCMaster.objects.filter(
-    Q(renewals__shelf_no__isnull=True) | 
+    
     Q(renewals__gst_reg_date__isnull=True) | 
     Q(renewals__mca_reg_date__isnull=True) | 
     Q(renewals__it_reg_date__isnull=True)
@@ -2008,7 +2184,6 @@ def general_user_mark_pending_renewal(request, dsc_number):
 @login_required
 @role_required('general-user')
 def general_user_renewal(request):
-    
     search_query = request.GET.get('search', '')
     dsc_number = request.GET.get('dsc_number')
     
@@ -2025,17 +2200,10 @@ def general_user_renewal(request):
             Q(phone_no__icontains=search_query)
         )
     
-    # Rest of your view code remains the same...
     dsc_master = None
     dsc_form = None
     doc_form = None
     documents = None
-    extra_fields_with_values = []
-
-    dsc_numbers = DSCMaster.objects.all()
-    dsc_form = None  
-    doc_form = None  
-    documents = None  
     extra_fields_with_values = []
 
     if request.method == 'POST':
@@ -2047,11 +2215,39 @@ def general_user_renewal(request):
         dsc_master = get_object_or_404(DSCMaster, dsc_number=dsc_number)
         old_password = dsc_master.password  
 
+        # Capture data before renewal for history
+        previous_data = {
+            'dsc_number': dsc_master.dsc_number,
+            'full_name': dsc_master.full_name,
+            'issued_date': dsc_master.issued_date.isoformat(),
+            'expiry_date': dsc_master.expiry_date.isoformat() if dsc_master.expiry_date else None,
+            'license_period': dsc_master.license_period.no_of_years if dsc_master.license_period else None,
+            'password': dsc_master.password,
+            'pan_no': dsc_master.pan_no,
+            'dsc_class': dsc_master.dsc_class.class_name if dsc_master.dsc_class else None,
+            'email_id': dsc_master.email_id,
+            'phone_no': dsc_master.phone_no,
+            'issuing_auth': dsc_master.issuing_auth.auth_name if dsc_master.issuing_auth else None,
+            'ref_name': dsc_master.ref_name,
+            'ref_contact': dsc_master.ref_contact,
+            'type': dsc_master.type,
+            'remarks': dsc_master.remarks,
+            'extra_fields': dsc_master.extra_fields,
+        }
+        
+        # Capture document info before renewal
+        current_docs = Docs.objects.filter(dsc_number=dsc_master).first()
+        previous_docs = {
+            'aadhar': current_docs.aadhar_path.url if current_docs and current_docs.aadhar_path else None,
+            'pan': current_docs.pan_path.url if current_docs and current_docs.pan_path else None,
+            'pp': current_docs.pp_path.url if current_docs and current_docs.pp_path else None,
+        }
+
         # Get extra fields for this DSC type
         extra_fields = DSCExtraField.objects.filter(
             Q(dsc_type=dsc_master.dsc_type.type_name.lower()) | Q(dsc_type="both"))
 
-        # ✅ Choose the correct form based on DSC type
+        # Choose the correct form based on DSC type
         if dsc_master.dsc_type.type_name.lower() == "internal":
             DscFormClass = InternalDSCForm
         else:
@@ -2059,7 +2255,7 @@ def general_user_renewal(request):
 
         dsc_form = DscFormClass(request.POST, instance=dsc_master)
         documents = Docs.objects.filter(dsc_number=dsc_master)
-        doc_form = DocsForm(request.POST, request.FILES)  # ✅ Handle new document uploads
+        doc_form = DocsForm(request.POST, request.FILES)
 
         if dsc_form.is_valid() and doc_form.is_valid():
             # Process extra fields - update both storage locations
@@ -2082,12 +2278,12 @@ def general_user_renewal(request):
             
             dsc_master.extra_fields = extra_data
 
-            # ✅ Handle password
+            # Handle password
             new_password = dsc_form.cleaned_data.get('password')
             if not new_password:
                 dsc_master.password = old_password
 
-            # ✅ Calculate new expiry date
+            # Calculate new expiry date
             new_issued_date = dsc_form.cleaned_data.get('issued_date')
             new_license_period = dsc_form.cleaned_data.get('license_period')
             new_expiry_date = new_issued_date + timedelta(days=new_license_period.no_of_years * 365)
@@ -2095,29 +2291,71 @@ def general_user_renewal(request):
             dsc_master.status = "Active" if new_expiry_date > now().date() else "Expired"
             dsc_master.save()
 
-            # ✅ Handle document updates
-            existing_docs = Docs.objects.filter(dsc_number=dsc_master).first()
-            if existing_docs:
+            # Handle document updates
+            new_docs = {}
+            if current_docs:
                 if 'aadhar_path' in request.FILES:
-                    existing_docs.aadhar_path = request.FILES['aadhar_path']
+                    current_docs.aadhar_path = request.FILES['aadhar_path']
                 if 'pan_path' in request.FILES:
-                    existing_docs.pan_path = request.FILES['pan_path']
+                    current_docs.pan_path = request.FILES['pan_path']
                 if 'pp_path' in request.FILES:
-                    existing_docs.pp_path = request.FILES['pp_path']
-                existing_docs.save()
+                    current_docs.pp_path = request.FILES['pp_path']
+                current_docs.save()
+                
+                new_docs = {
+                    'aadhar': current_docs.aadhar_path.url if current_docs.aadhar_path else None,
+                    'pan': current_docs.pan_path.url if current_docs.pan_path else None,
+                    'pp': current_docs.pp_path.url if current_docs.pp_path else None,
+                }
             else:
-                # ✅ If no previous documents exist, create a new entry
                 doc_instance = doc_form.save(commit=False)
                 doc_instance.dsc_number = dsc_master
                 doc_instance.save()
+                new_docs = {
+                    'aadhar': doc_instance.aadhar_path.url if doc_instance.aadhar_path else None,
+                    'pan': doc_instance.pan_path.url if doc_instance.pan_path else None,
+                    'pp': doc_instance.pp_path.url if doc_instance.pp_path else None,
+                }
 
-            # ✅ Remove DSC from "Not Renewing" category if mistakenly added
+            # Prepare new data for history
+            new_data = {
+                'dsc_number': dsc_form.cleaned_data.get('dsc_number'),
+                'full_name': dsc_form.cleaned_data.get('full_name'),
+                'issued_date': new_issued_date.isoformat(),
+                'expiry_date': new_expiry_date.isoformat(),
+                'license_period': new_license_period.no_of_years,
+                'password': new_password if new_password else old_password,
+                'pan_no': dsc_form.cleaned_data.get('pan_no'),
+                'dsc_class': dsc_form.cleaned_data.get('dsc_class').class_name if dsc_form.cleaned_data.get('dsc_class') else None,
+                'email_id': dsc_form.cleaned_data.get('email_id'),
+                'phone_no': dsc_form.cleaned_data.get('phone_no'),
+                'issuing_auth': dsc_form.cleaned_data.get('issuing_auth').auth_name if dsc_form.cleaned_data.get('issuing_auth') else None,
+                'ref_name': dsc_form.cleaned_data.get('ref_name'),
+                'ref_contact': dsc_form.cleaned_data.get('ref_contact'),
+                'type': dsc_form.cleaned_data.get('type'),
+                'remarks': dsc_form.cleaned_data.get('remarks'),
+                'extra_fields': extra_data,
+            }
+
+            # Create renewal history record
+            DSCRenewalHistory.objects.create(
+                dsc=dsc_master,
+                renewed_by=request.user,
+                previous_data=previous_data,
+                new_data=new_data,
+                previous_documents=previous_docs,
+                new_documents=new_docs
+            )
+
+            # Remove DSC from "Not Renewing" category if mistakenly added
             DSCRenewal.objects.filter(dsc_number=dsc_master, remarks__isnull=False).delete()
 
             messages.success(request, "✅ DSC renewed successfully!")
-            return redirect('general_user_renewal')
+            return redirect('general_user_renewal'  )
         else:
             messages.error(request, "❌ Please fill in all required fields.")
+            print("Form Errors (dsc_form):", dsc_form.errors)
+            print("Form Errors (doc_form):", doc_form.errors)
 
     # Handle GET request
     dsc_number = request.GET.get('dsc_number')
@@ -2159,7 +2397,7 @@ def general_user_renewal(request):
                 'choices': field.get_FIELD_TYPE_CHOICES_display() if field.field_type == 'select' else []
             })
         
-        # ✅ Choose the correct form dynamically
+        # Choose the correct form dynamically
         if dsc_master.dsc_type.type_name.lower() == "internal":
             DscFormClass = InternalDSCForm
         else:
@@ -2169,7 +2407,7 @@ def general_user_renewal(request):
         dsc_form.fields['password'].widget.attrs['value'] = dsc_master.password  # Pre-fill password
         documents = Docs.objects.filter(dsc_number=dsc_master)
         doc_form = DocsForm()  # Form for uploading new documents
-
+        
     return render(request, 'general_user/renewal.html', {
         'dsc_master': dsc_master,
         'dsc_numbers': dsc_numbers,
@@ -2177,8 +2415,8 @@ def general_user_renewal(request):
         'doc_form': doc_form,
         'documents': documents,
         'extra_fields_with_values': extra_fields_with_values,
+        'history_count': DSCRenewalHistory.objects.filter(dsc=dsc_master).count() if dsc_master else 0,
     })
-
 
 
 
@@ -2369,7 +2607,7 @@ def general_user_internal_newentry(request):
                 next_dsc_number = str(int(last_internal_dsc.dsc_number) + 1)
         else:
             # First entry
-            next_dsc_number = "INT-001"
+            next_dsc_number = "1500"
             
         # Initialize the field with auto-generated value
         form_new.fields['dsc_number'].initial = next_dsc_number
@@ -2846,7 +3084,6 @@ def general_user_delete_usage_log(request, log_id):
     return redirect('general_user_usage_logs')
 
 
-
 @login_required
 @role_required('general-user')
 def general_user_additional_details(request):
@@ -2854,8 +3091,9 @@ def general_user_additional_details(request):
     dsc_numbers = DSCMaster.objects.all()
     additional_form = None
     dsc_master = None
-    previous_additional_details = None  
- 
+    previous_additional_details = None
+    extra_fields_data = []
+
     if request.method == 'POST':
         dsc_number = request.POST.get('dsc_number') or request.POST.get('dsc_number_hidden')
 
@@ -2878,12 +3116,23 @@ def general_user_additional_details(request):
             additional_instance = additional_form.save(commit=False)
             additional_instance.dsc_number = dsc_master
 
-            # ✅ If explicitly marked as "Not Renewing", keep it there
-            if additional_instance.remarks and "not renewing" in additional_instance.remarks.lower():
-                additional_instance.save()
-            else:
-                # ✅ Remove from "Not Renewing" if mistakenly added
-                DSCRenewal.objects.filter(dsc_number=dsc_master, remarks__icontains="not renewing").delete()
+            # Save extra fields to JSON field with proper serialization
+            additional_instance.extra_fields = {}
+            for field in RenewalExtraField.objects.all():
+                field_name = field.field_name
+                if field_name in additional_form.cleaned_data:
+                    value = additional_form.cleaned_data[field_name]
+                    
+                    # Handle different field types
+                    if field.field_type == "boolean":
+                        value = bool(value)
+                    elif field.field_type == "date" and value:
+                        if isinstance(value, datetime_date):
+                            value = value.isoformat()  # Convert date to string
+                    elif value is None:
+                        continue
+                        
+                    additional_instance.extra_fields[field_name] = value
 
             additional_instance.save()
             messages.success(request, "✅ Additional details updated successfully!")
@@ -2898,8 +3147,34 @@ def general_user_additional_details(request):
 
             if latest_additional_instance:
                 additional_form = DSCRenewalForm(instance=latest_additional_instance)
+                # Deserialize dates from JSON
+                if latest_additional_instance.extra_fields:
+                    for field in RenewalExtraField.objects.filter(field_type='date'):
+                        if field.field_name in latest_additional_instance.extra_fields:
+                            date_str = latest_additional_instance.extra_fields[field.field_name]
+                            if date_str:
+                                try:
+                                    # Fixed: Use datetime_date.fromisoformat()
+                                    additional_form.initial[field.field_name] = datetime_date.fromisoformat(date_str)
+                                except (ValueError, TypeError):
+                                    pass
             else:
                 additional_form = DSCRenewalForm()
+
+            # Prepare extra fields data for template
+            if additional_form:
+                for field in RenewalExtraField.objects.all():
+                    try:
+                        extra_fields_data.append({
+                            'name': field.field_name,
+                            'field': additional_form[field.field_name],
+                            'label': field.label or field.field_name.replace('_', ' ').title(),
+                            'required': field.required,
+                            'help_text': field.help_text,
+                            'field_type': field.field_type  # Add field type to context
+                        })
+                    except KeyError:
+                        continue
 
         except DSCMaster.DoesNotExist:
             messages.error(request, f"❌ No DSC found with number {dsc_number}. Please try again.")
@@ -2910,6 +3185,7 @@ def general_user_additional_details(request):
         'additional_form': additional_form,
         'selected_dsc': dsc_master,
         'previous_additional_details': previous_additional_details,
+        'extra_fields_data': extra_fields_data,
     })
 
 
@@ -3270,7 +3546,6 @@ def export_all_models_excel(request):
                 data.append({
                     'Id': obj.additional_id,
                     'DSC number': obj.dsc_number,
-                    'Shelf No': obj.shelf_no,
                     'GST reg date': obj.gst_reg_date,
                     'IT reg date': obj.it_reg_date,
                     'MCA reg date': obj.mca_reg_date,
@@ -3325,3 +3600,956 @@ def export_all_models_excel(request):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+##modification
+
+from django.db.models import Max
+
+@login_required
+@role_required('admin')
+def shelf_history(request):
+    # Get all assignment/unassignment records
+    history = ShelfAssignment.objects.select_related(
+        'dsc_number', 
+        'shelf_no',
+        'action_by'
+    ).order_by('-action_date')
+
+    # Initialize filter variables
+    dsc_number = request.GET.get('dsc_number', '')
+    shelf_no = request.GET.get('shelf_no', '')
+    performed_by = request.GET.get('performed_by', '')
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    action_type = request.GET.get('action_type', '')
+
+    # Apply filters
+    if dsc_number:
+        history = history.filter(dsc_number__dsc_number__icontains=dsc_number)
+    if shelf_no:
+        history = history.filter(shelf_no__shelf_no__icontains=shelf_no)
+    if performed_by:
+        history = history.filter(action_by__username__icontains=performed_by)
+    if action_type:
+        history = history.filter(action=action_type)
+    if start_date:
+        history = history.filter(action_date__gte=start_date)
+    if end_date:
+        history = history.filter(action_date__lte=end_date)
+
+    # Pagination
+    paginator = Paginator(history, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'total_records': history.count(),
+        'filter_values': {
+            'dsc_number': dsc_number,
+            'shelf_no': shelf_no,
+            'performed_by': performed_by,
+            'start_date': start_date,
+            'end_date': end_date,
+            'action_type': action_type
+        }
+    }
+    return render(request, 'shelf_history.html', context)
+
+@login_required
+@role_required('admin')
+def assign_shelf(request):
+    # Get all DSCs that are 'in' and not currently assigned
+    available_dscs = []
+    all_dscs = DSCMaster.objects.select_related('dsc_type').prefetch_related('inout_set').all()
+    
+    # Get most recent action for each DSC
+    latest_actions = ShelfAssignment.objects.values('dsc_number').annotate(
+        latest_date=Max('action_date')
+    ).order_by()
+    
+    # Create dictionary of latest action types
+    latest_action_types = {}
+    for item in latest_actions:
+        action = ShelfAssignment.objects.filter(
+            dsc_number=item['dsc_number'],
+            action_date=item['latest_date']
+        ).first()
+        latest_action_types[action.dsc_number_id] = action.action
+    
+    for dsc in all_dscs:
+        # Check direction
+        is_in = dsc.current_direction == 'in'
+        
+        # Check if DSC has any assignment history
+        has_history = dsc.dsc_id in latest_action_types
+        
+        # DSC is available if:
+        # 1. It's 'in' AND
+        # 2. Either has no history OR last action was 'unassign'
+        if is_in and (not has_history or latest_action_types[dsc.dsc_id] == 'unassign'):
+            available_dscs.append(dsc)
+
+    if request.method == 'POST':
+        form = AssignShelfForm(request.POST)
+        if form.is_valid():
+            dsc_number = request.POST.get('dsc_number')
+            try:
+                dsc = DSCMaster.objects.get(dsc_number=dsc_number)
+                
+                # Re-validate using model property
+                if dsc.current_direction != 'in':
+                    messages.error(request, f"Cannot assign shelf - DSC {dsc.dsc_number} is currently 'out'")
+                    return redirect('assign_shelf')
+                
+                # Check if already assigned (last action was 'assign')
+                last_action = ShelfAssignment.objects.filter(
+                    dsc_number=dsc
+                ).order_by('-action_date').first()
+                
+                if last_action and last_action.action == 'assign':
+                    messages.error(request, f"DSC {dsc.dsc_number} already has a shelf assigned")
+                    return redirect('assign_shelf')
+
+                assignment = form.save(commit=False)
+                assignment.dsc_number = dsc
+                assignment.action = 'assign'
+                assignment.action_by = request.user
+                assignment.save()
+                
+                messages.success(request, f"Shelf {assignment.shelf_no} assigned to DSC {dsc.dsc_number}")
+                return redirect('assign_shelf')
+            except DSCMaster.DoesNotExist:
+                messages.error(request, "Selected DSC does not exist")
+                return redirect('assign_shelf')
+    else:
+        form = AssignShelfForm()
+
+    context = {
+        'available_dscs': available_dscs,
+        'form': form,
+        'shelves': Shelf.objects.all(),
+        'dsc_list': available_dscs
+    }
+    return render(request, 'assign_shelf.html', context)
+
+@login_required
+@role_required('admin')
+def unassign_shelf(request):
+    # Get all DSCs where most recent action is 'assign'
+    assigned_dscs = []
+    
+    # Get most recent action for each DSC
+    latest_actions = ShelfAssignment.objects.values('dsc_number').annotate(
+        latest_date=Max('action_date')
+    ).order_by()
+    
+    # Filter to only include DSCs where latest action is 'assign'
+    active_assignments = ShelfAssignment.objects.filter(
+        action='assign',
+        action_date__in=[item['latest_date'] for item in latest_actions]
+    ).select_related('dsc_number', 'shelf_no', 'action_by')
+    
+    for assignment in active_assignments:
+        assigned_dscs.append({
+            'dsc': assignment.dsc_number,
+            'shelf': assignment.shelf_no,
+            'assignment_date': assignment.action_date,
+            'assigned_by': assignment.action_by,
+        })
+
+    if request.method == 'POST':
+        form = UnassignShelfForm(request.POST)
+        if form.is_valid():
+            dsc_number = request.POST.get('dsc_number')
+            try:
+                dsc = DSCMaster.objects.get(dsc_number=dsc_number.split(' - ')[0])
+                
+                # Get the current active assignment (most recent 'assign' action)
+                current_assignment = ShelfAssignment.objects.filter(
+                    dsc_number=dsc,
+                    action='assign'
+                ).order_by('-action_date').first()
+
+                if not current_assignment:
+                    messages.error(request, f"No active shelf assignment found for DSC {dsc.dsc_number}")
+                    return redirect('unassign_shelf')
+
+                # Create unassignment record (DO NOT DELETE THE ASSIGNMENT RECORD)
+                ShelfAssignment.objects.create(
+                    dsc_number=dsc,
+                    shelf_no=current_assignment.shelf_no,
+                    action='unassign',
+                    action_by=request.user,
+                    remarks=form.cleaned_data['remarks']
+                )
+                
+                messages.success(request, 
+                    f"Shelf {current_assignment.shelf_no} unassigned from DSC {dsc.dsc_number}")
+                return redirect('unassign_shelf')
+            except DSCMaster.DoesNotExist:
+                messages.error(request, "Selected DSC does not exist")
+                return redirect('unassign_shelf')
+    else:
+        form = UnassignShelfForm()
+
+    context = {
+        'assigned_dscs': assigned_dscs,
+        'form': form,
+        'dsc_list': [item['dsc'] for item in assigned_dscs]
+    }
+    return render(request, 'unassign_shelf.html', context)
+
+
+
+@login_required
+@role_required('general-user')
+def general_user_shelf_history(request):
+    # Get all assignment/unassignment records
+    history = ShelfAssignment.objects.select_related(
+        'dsc_number', 
+        'shelf_no',
+        'action_by'
+    ).order_by('-action_date')
+
+    # Initialize filter variables
+    dsc_number = request.GET.get('dsc_number', '')
+    shelf_no = request.GET.get('shelf_no', '')
+    performed_by = request.GET.get('performed_by', '')
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    action_type = request.GET.get('action_type', '')
+
+    # Apply filters
+    if dsc_number:
+        history = history.filter(dsc_number__dsc_number__icontains=dsc_number)
+    if shelf_no:
+        history = history.filter(shelf_no__shelf_no__icontains=shelf_no)
+    if performed_by:
+        history = history.filter(action_by__username__icontains=performed_by)
+    if action_type:
+        history = history.filter(action=action_type)
+    if start_date:
+        history = history.filter(action_date__gte=start_date)
+    if end_date:
+        history = history.filter(action_date__lte=end_date)
+
+    # Pagination
+    paginator = Paginator(history, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'total_records': history.count(),
+        'filter_values': {
+            'dsc_number': dsc_number,
+            'shelf_no': shelf_no,
+            'performed_by': performed_by,
+            'start_date': start_date,
+            'end_date': end_date,
+            'action_type': action_type
+        }
+    }
+    return render(request, 'general_user/shelf_history.html', context)
+
+@login_required
+@role_required('general-user')
+def general_user_assign_shelf(request):
+    # Get all DSCs that are 'in' and not currently assigned
+    available_dscs = []
+    all_dscs = DSCMaster.objects.select_related('dsc_type').prefetch_related('inout_set').all()
+    
+    # Get most recent action for each DSC
+    latest_actions = ShelfAssignment.objects.values('dsc_number').annotate(
+        latest_date=Max('action_date')
+    ).order_by()
+    
+    # Create dictionary of latest action types
+    latest_action_types = {}
+    for item in latest_actions:
+        action = ShelfAssignment.objects.filter(
+            dsc_number=item['dsc_number'],
+            action_date=item['latest_date']
+        ).first()
+        latest_action_types[action.dsc_number_id] = action.action
+    
+    for dsc in all_dscs:
+        # Check direction
+        is_in = dsc.current_direction == 'in'
+        
+        # Check if DSC has any assignment history
+        has_history = dsc.dsc_id in latest_action_types
+        
+        # DSC is available if:
+        # 1. It's 'in' AND
+        # 2. Either has no history OR last action was 'unassign'
+        if is_in and (not has_history or latest_action_types[dsc.dsc_id] == 'unassign'):
+            available_dscs.append(dsc)
+
+    if request.method == 'POST':
+        form = AssignShelfForm(request.POST)
+        if form.is_valid():
+            dsc_number = request.POST.get('dsc_number')
+            try:
+                dsc = DSCMaster.objects.get(dsc_number=dsc_number)
+                
+                # Re-validate using model property
+                if dsc.current_direction != 'in':
+                    messages.error(request, f"Cannot assign shelf - DSC {dsc.dsc_number} is currently 'out'")
+                    return redirect('general_user_assign_shelf')
+                
+                # Check if already assigned (last action was 'assign')
+                last_action = ShelfAssignment.objects.filter(
+                    dsc_number=dsc
+                ).order_by('-action_date').first()
+                
+                if last_action and last_action.action == 'assign':
+                    messages.error(request, f"DSC {dsc.dsc_number} already has a shelf assigned")
+                    return redirect('general_user_assign_shelf')
+
+                assignment = form.save(commit=False)
+                assignment.dsc_number = dsc
+                assignment.action = 'assign'
+                assignment.action_by = request.user
+                assignment.save()
+                
+                messages.success(request, f"Shelf {assignment.shelf_no} assigned to DSC {dsc.dsc_number}")
+                return redirect('general_user_assign_shelf')
+            except DSCMaster.DoesNotExist:
+                messages.error(request, "Selected DSC does not exist")
+                return redirect('general_user_assign_shelf')
+    else:
+        form = AssignShelfForm()
+
+    context = {
+        'available_dscs': available_dscs,
+        'form': form,
+        'shelves': Shelf.objects.all(),
+        'dsc_list': available_dscs
+    }
+    return render(request, 'general_user/assign_shelf.html', context)
+
+@login_required
+@role_required('general-user')
+def general_user_unassign_shelf(request):
+    # Get all DSCs where most recent action is 'assign'
+    assigned_dscs = []
+    
+    # Get most recent action for each DSC
+    latest_actions = ShelfAssignment.objects.values('dsc_number').annotate(
+        latest_date=Max('action_date')
+    ).order_by()
+    
+    # Filter to only include DSCs where latest action is 'assign'
+    active_assignments = ShelfAssignment.objects.filter(
+        action='assign',
+        action_date__in=[item['latest_date'] for item in latest_actions]
+    ).select_related('dsc_number', 'shelf_no', 'action_by')
+    
+    for assignment in active_assignments:
+        assigned_dscs.append({
+            'dsc': assignment.dsc_number,
+            'shelf': assignment.shelf_no,
+            'assignment_date': assignment.action_date,
+            'assigned_by': assignment.action_by,
+        })
+
+    if request.method == 'POST':
+        form = UnassignShelfForm(request.POST)
+        if form.is_valid():
+            dsc_number = request.POST.get('dsc_number')
+            try:
+                dsc = DSCMaster.objects.get(dsc_number=dsc_number.split(' - ')[0])
+                
+                # Get the current active assignment (most recent 'assign' action)
+                current_assignment = ShelfAssignment.objects.filter(
+                    dsc_number=dsc,
+                    action='assign'
+                ).order_by('-action_date').first()
+
+                if not current_assignment:
+                    messages.error(request, f"No active shelf assignment found for DSC {dsc.dsc_number}")
+                    return redirect('general_user_unassign_shelf')
+
+                # Create unassignment record (DO NOT DELETE THE ASSIGNMENT RECORD)
+                ShelfAssignment.objects.create(
+                    dsc_number=dsc,
+                    shelf_no=current_assignment.shelf_no,
+                    action='unassign',
+                    action_by=request.user,
+                    remarks=form.cleaned_data['remarks']
+                )
+                
+                messages.success(request, 
+                    f"Shelf {current_assignment.shelf_no} unassigned from DSC {dsc.dsc_number}")
+                return redirect('general_user_unassign_shelf')
+            except DSCMaster.DoesNotExist:
+                messages.error(request, "Selected DSC does not exist")
+                return redirect('general_user_unassign_shelf')
+    else:
+        form = UnassignShelfForm()
+
+    context = {
+        'assigned_dscs': assigned_dscs,
+        'form': form,
+        'dsc_list': [item['dsc'] for item in assigned_dscs]
+    }
+    return render(request, 'general_user/unassign_shelf.html', context)
+
+
+from django.db import transaction
+from io import StringIO
+import pandas as pd
+from datetime import datetime
+
+@login_required
+@role_required('admin')
+def bulk_upload_dsc(request):
+    if request.method == 'POST':
+        form = BulkDSCUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                dsc_type = form.cleaned_data['dsc_type']
+                upload_file = request.FILES['upload_file']
+                
+                # Read the uploaded file
+                if upload_file.name.endswith('.csv'):
+                    df = pd.read_csv(upload_file)
+                else:  # Excel file
+                    df = pd.read_excel(upload_file)
+                
+                # Convert to list of dictionaries
+                records = df.replace({pd.NA: None}).to_dict('records')
+                
+                created_count = 0
+                errors = []
+                
+                with transaction.atomic():
+                    for idx, record in enumerate(records, start=2):  # Start at 2 for Excel row numbers
+                        try:
+                            if dsc_type == 'internal':
+                                dsc = process_internal_dsc_record(record, request.user)
+                            else:
+                                dsc = process_external_dsc_record(record, request.user)
+                            
+                            created_count += 1
+                        except Exception as e:
+                            errors.append(f"Row {idx}: {str(e)}")
+                
+                if errors:
+                    messages.warning(
+                        request, 
+                        f"Successfully created {created_count} DSCs with {len(errors)} errors"
+                    )
+                    return render(request, 'bulk_upload_errors.html', {'errors': errors})
+                else:
+                    messages.success(request, f"Successfully created {created_count} DSCs")
+                    return redirect('map_dsc_entity')
+                    
+            except Exception as e:
+                messages.error(request, f"Error processing file: {str(e)}")
+    else:
+        form = BulkDSCUploadForm()
+    
+    return render(request, 'bulk_upload_dsc.html', {'form': form})
+
+def process_internal_dsc_record(record, user):
+    """Process a single internal DSC record from bulk upload with all required fields"""
+    # All fields that are required in InternalDSCForm
+    required_fields = [
+        'dsc_number', 'full_name', 'issued_date', 'license_period', 'password',
+        'pan_no', 'dsc_class', 'email_id', 'phone_no', 'issuing_auth',
+        'ref_name', 'ref_contact', 'type', 'remarks'
+    ]
+    
+    # Validate required fields
+    for field in required_fields:
+        if field not in record or not record[field]:
+            raise ValidationError(f"Missing required field for internal DSC: {field}")
+    
+    # Auto-generate DSC number if not provided (though InternalDSCForm makes it required)
+    if not record.get('dsc_number'):
+        internal_type = Type.objects.get(type_name='Internal')
+        last_internal = DSCMaster.objects.filter(dsc_type=internal_type).order_by('-dsc_id').first()
+        dsc_number = str(int(last_internal.dsc_number) + 1) if last_internal else "1500"
+    else:
+        dsc_number = record['dsc_number']
+    
+    # Convert date strings to date objects
+    if isinstance(record['issued_date'], str):
+        try:
+            record['issued_date'] = datetime.strptime(record['issued_date'], '%Y-%m-%d').date()
+        except ValueError:
+            raise ValidationError("Invalid date format. Use YYYY-MM-DD")
+    
+    # Get license period object
+    try:
+        if isinstance(record['license_period'], str):
+            license_period = LicensePeriod.objects.get(no_of_years=int(record['license_period']))
+        else:
+            license_period = LicensePeriod.objects.get(pk=record['license_period'])
+    except (LicensePeriod.DoesNotExist, ValueError):
+        raise ValidationError("Invalid license period")
+    
+    # Create DSC with all required fields
+    dsc = DSCMaster(
+        dsc_number=dsc_number,
+        full_name=record['full_name'],
+        issued_date=record['issued_date'],
+        license_period=license_period,
+        dsc_type=Type.objects.get(type_name='Internal'),
+        user_id=user,
+        pan_no=record['pan_no'],
+        email_id=record['email_id'],
+        phone_no=record['phone_no'],
+        dsc_class_id=record['dsc_class'],
+        issuing_auth_id=record['issuing_auth'],
+        ref_name=record['ref_name'],
+        ref_contact=record['ref_contact'],
+        type=record['type'],
+        remarks=record['remarks'],
+        password=record['password']
+    )
+    
+    dsc.full_clean()
+    dsc.save()
+    
+    # Create documents record (required for internal)
+    Docs.objects.create(dsc_number=dsc)
+    
+    # Create InOut record
+    InOut.objects.create(
+        dsc_number=dsc,
+        direction="in",
+        initiated=False,
+        action_completed=False
+    )
+    
+    return dsc
+
+def process_external_dsc_record(record, user):
+    """Process a single external DSC record from bulk upload with proper null handling"""
+    # Required fields for external DSC
+    required_fields = ['dsc_number', 'full_name', 'issued_date', 'license_period', 'password', 'remarks']
+    
+    # Validate required fields
+    for field in required_fields:
+        if field not in record or pd.isna(record[field]) or str(record[field]).strip() == '':
+            raise ValidationError(f"Missing required field for external DSC: {field}")
+    
+    # Convert date strings to date objects
+    if isinstance(record['issued_date'], str):
+        try:
+            record['issued_date'] = datetime.strptime(record['issued_date'], '%Y-%m-%d').date()
+        except ValueError:
+            raise ValidationError("Invalid date format. Use YYYY-MM-DD")
+    
+    # Get license period object
+    try:
+        if isinstance(record['license_period'], str):
+            license_period = LicensePeriod.objects.get(no_of_years=int(float(record['license_period'])))
+        else:
+            license_period = LicensePeriod.objects.get(pk=int(float(record['license_period'])))
+    except (LicensePeriod.DoesNotExist, ValueError, TypeError):
+        raise ValidationError("Invalid license period")
+    
+    # Helper function to clean optional foreign key fields
+    def clean_foreign_key(value):
+        if pd.isna(value) or str(value).strip() == '':
+            return None
+        try:
+            return int(float(value))
+        except (ValueError, TypeError):
+            return None
+    
+    # Helper function to clean optional choice fields
+    def clean_choice_field(value, choices):
+        if pd.isna(value) or str(value).strip() == '':
+            return None
+        value = str(value).strip()
+        if value in [choice[0] for choice in choices]:
+            return value
+        return None
+    
+    # Create DSC instance
+    dsc = DSCMaster(
+        dsc_number=str(record['dsc_number']).strip(),
+        full_name=str(record['full_name']).strip(),
+        issued_date=record['issued_date'],
+        license_period=license_period,
+        dsc_type=Type.objects.get(type_name='External'),
+        user_id=user,
+        password=str(record['password']).strip(),
+        remarks=str(record['remarks']).strip(),
+        # Optional fields
+        pan_no=clean_optional_field(record.get('pan_no')),
+        email_id=clean_optional_field(record.get('email_id')),
+        phone_no=clean_optional_field(record.get('phone_no')),
+        dsc_class_id=clean_foreign_key(record.get('dsc_class')),
+        issuing_auth_id=clean_foreign_key(record.get('issuing_auth')),
+        ref_name=clean_optional_field(record.get('ref_name')),
+        ref_contact=clean_optional_field(record.get('ref_contact')),
+        type=clean_choice_field(record.get('type'), 
+                              [('Organization', 'Organization'), ('Individual', 'Individual')])
+    )
+    
+    # Additional validation for cleaned data
+    if dsc.email_id and not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', dsc.email_id):
+        dsc.email_id = None
+    
+    if dsc.phone_no and not re.match(r'^\d{10}$', dsc.phone_no):
+        dsc.phone_no = None
+    
+    if dsc.ref_contact and not re.match(r'^\d{10}$', dsc.ref_contact):
+        dsc.ref_contact = None
+    
+    dsc.full_clean()
+    dsc.save()
+    
+    # Create documents record
+    Docs.objects.create(dsc_number=dsc)
+    
+    return dsc
+
+def clean_optional_field(value):
+    """Clean general optional fields"""
+    if pd.isna(value) or str(value).strip() == '':
+        return None
+    return str(value).strip()
+
+@login_required
+@role_required('admin')
+def download_bulk_template(request):
+    dsc_type = request.GET.get('type', 'internal')
+    
+    if dsc_type == 'internal':
+        # Internal template with all required fields
+        data = {
+            'dsc_number': ['INT-001'],  # Will be auto-generated if empty
+            'full_name': ['John Doe'],
+            'issued_date': ['2023-01-01'],
+            'license_period': ['1'],  # Years or ID
+            'password': ['SecurePass123!'],
+            'pan_no': ['ABCDE1234F'],
+            'email_id': ['john@example.com'],
+            'phone_no': ['9876543210'],
+            'dsc_class': ['1'],  # IDs from DSC_class
+            'issuing_auth': ['1'],  # IDs from IssuingAuth
+            'ref_name': ['Ref Person'],
+            'ref_contact': ['9876543210'],
+            'type': ['Individual'],
+            'remarks': ['Sample remark']
+        }
+    else:
+        # External template with only required fields
+        data = {
+            'dsc_number': ['EXT-001'],
+            'full_name': ['External User'],
+            'issued_date': ['2023-01-01'],
+            'license_period': ['1'],  # Years or ID
+            'password': ['SecurePass123!'],
+            'remarks': ['Sample remark'],
+            # Optional fields with empty values
+            'pan_no': [''],
+            'email_id': [''],
+            'phone_no': [''],
+            'dsc_class': [''],
+            'issuing_auth': [''],
+            'ref_name': [''],
+            'ref_contact': [''],
+            'type': ['']
+        }
+    
+    df = pd.DataFrame(data)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="dsc_bulk_template_{dsc_type}.xlsx"'
+    
+    df.to_excel(response, index=False)
+    return response
+
+
+@login_required
+@role_required('admin')
+def bulk_upload_entity(request):
+    if request.method == 'POST':
+        form = BulkEntityUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                upload_file = request.FILES['upload_file']
+                
+                # Read the uploaded file
+                if upload_file.name.endswith('.csv'):
+                    df = pd.read_csv(upload_file)
+                else:  # Excel file
+                    df = pd.read_excel(upload_file)
+                
+                # Convert to list of dictionaries
+                records = df.replace({pd.NA: None}).to_dict('records')
+                
+                created_count = 0
+                errors = []
+                
+                with transaction.atomic():
+                    for idx, record in enumerate(records, start=2):  # Start at 2 for Excel row numbers
+                        try:
+                            entity = process_entity_record(record)
+                            created_count += 1
+                        except Exception as e:
+                            errors.append(f"Row {idx}: {str(e)}")
+                
+                if errors:
+                    messages.warning(
+                        request, 
+                        f"Successfully created {created_count} entities with {len(errors)} errors"
+                    )
+                    return render(request, 'bulk_upload_errors.html', {'errors': errors})
+                else:
+                    messages.success(request, f"Successfully created {created_count} entities")
+                    return redirect('entity_list')  # Replace with your entity list view
+                    
+            except Exception as e:
+                messages.error(request, f"Error processing file: {str(e)}")
+    else:
+        form = BulkEntityUploadForm()
+    
+    return render(request, 'bulk_upload_entity.html', {'form': form})
+
+def process_entity_record(record):
+    """Process a single entity record from bulk upload"""
+    if 'entity_name' not in record or not record['entity_name']:
+        raise ValidationError("Missing required field: entity_name")
+    
+    entity_name = str(record['entity_name']).strip()
+    
+    # Check for duplicates
+    if Entity.objects.filter(entity_name__iexact=entity_name).exists():
+        raise ValidationError(f"Entity with name '{entity_name}' already exists")
+    
+    entity = Entity(entity_name=entity_name)
+    entity.full_clean()
+    entity.save()
+    
+    return entity
+
+@login_required
+@role_required('admin')
+def download_entity_template(request):
+    data = {
+        'entity_name': ['Entity 1', 'Entity 2', 'Entity 3']
+    }
+    
+    df = pd.DataFrame(data)
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="entity_bulk_template.xlsx"'
+    
+    df.to_excel(response, index=False)
+    return response
+
+
+# views.py
+
+@login_required
+@role_required('admin')
+def renewal_history(request, dsc_id):
+    dsc = get_object_or_404(DSCMaster, pk=dsc_id)
+    history_entries = dsc.renewal_history.all().order_by('-renewal_date')
+    
+    # Prepare data for display
+    history_data = []
+    for entry in history_entries:
+        history_data.append({
+            'renewal_date': entry.renewal_date,
+            'renewed_by': entry.renewed_by,
+            'changes': get_field_changes(entry.previous_data, entry.new_data),
+            'previous_documents': entry.previous_documents,  # Changed from documents_snapshot
+            'new_documents': entry.new_documents,            # Changed from documents_snapshot
+            'document_changes': entry.document_changes       # Add this line
+        })
+    
+    return render(request, 'renewal_history.html', {
+        'dsc': dsc,
+        'history': history_data,
+        'current_dsc_data': {
+            'issued_date': dsc.issued_date,
+            'expiry_date': dsc.expiry_date,
+            'status': dsc.status,
+            'dsc_number': dsc.dsc_number,
+            'full_name': dsc.full_name,
+        }
+    })
+
+def get_field_changes(old_data, new_data):
+    changes = []
+    all_fields = set(old_data.keys()).union(set(new_data.keys()))
+    
+    for field in all_fields:
+        old_value = old_data.get(field)
+        new_value = new_data.get(field)
+        
+        if old_value != new_value:
+            # Format dates properly
+            if field.endswith('_date') and old_value:
+                try:
+                    old_value = datetime.strptime(old_value, '%Y-%m-%d').strftime('%d %b %Y')
+                except:
+                    pass
+            if field.endswith('_date') and new_value:
+                try:
+                    new_value = datetime.strptime(new_value, '%Y-%m-%d').strftime('%d %b %Y')
+                except:
+                    pass
+            
+            # Handle special cases
+            if field == 'license_period':
+                try:
+                    old_value = LicensePeriod.objects.get(license_id=old_value).no_of_years if old_value else None
+                    new_value = LicensePeriod.objects.get(license_id=new_value).no_of_years if new_value else None
+                except LicensePeriod.DoesNotExist:
+                    pass
+            
+            changes.append({
+                'field': field.replace('_', ' ').title(),
+                'old': old_value,
+                'new': new_value
+            })
+    
+    return changes
+
+@login_required
+@role_required('general-user')
+def general_user_renewal_history(request, dsc_id):
+    dsc = get_object_or_404(DSCMaster, pk=dsc_id)
+    history_entries = dsc.renewal_history.all().order_by('-renewal_date')
+    
+    # Prepare data for display
+    history_data = []
+    for entry in history_entries:
+        history_data.append({
+            'renewal_date': entry.renewal_date,
+            'renewed_by': entry.renewed_by,
+            'changes': get_field_changes(entry.previous_data, entry.new_data),
+            'previous_documents': entry.previous_documents,  # Changed from documents_snapshot
+            'new_documents': entry.new_documents,            # Changed from documents_snapshot
+            'document_changes': entry.document_changes       # Add this line
+        })
+    
+    return render(request, 'general_user/renewal_history.html', {
+        'dsc': dsc,
+        'history': history_data,
+        'current_dsc_data': {
+            'issued_date': dsc.issued_date,
+            'expiry_date': dsc.expiry_date,
+            'status': dsc.status,
+            'dsc_number': dsc.dsc_number,
+            'full_name': dsc.full_name,
+        }
+    })
+
+from django.db.models import Q
+from datetime import datetime
+
+@login_required
+@role_required('admin')
+def all_renewals(request):
+    # Get all renewal history entries
+    renewals = DSCRenewalHistory.objects.all().order_by('-renewal_date')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        renewals = renewals.filter(
+            Q(dsc__dsc_number__icontains=search_query) |
+            Q(dsc__full_name__icontains=search_query) |
+            Q(renewed_by__username__icontains=search_query)
+        )
+    
+    # Date filtering
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            renewals = renewals.filter(renewal_date__gte=start_date)
+        except ValueError:
+            messages.error(request, "Invalid start date format. Use YYYY-MM-DD.")
+    
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            renewals = renewals.filter(renewal_date__lte=end_date)
+        except ValueError:
+            messages.error(request, "Invalid end date format. Use YYYY-MM-DD.")
+    
+    # Pagination
+    paginator = Paginator(renewals, 25)  # Show 25 renewals per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get current filter values for the template
+    current_filters = {
+        'search': search_query,
+        'start_date': start_date.strftime('%Y-%m-%d') if start_date else '',
+        'end_date': end_date.strftime('%Y-%m-%d') if end_date else '',
+    }
+    
+    return render(request, 'all_renewals.html', {
+        'page_obj': page_obj,
+        'total_renewals': renewals.count(),
+        'current_filters': current_filters
+    })
+
+@login_required
+@role_required('general-user')
+def general_user_all_renewals(request):
+    # Get all renewal history entries
+    renewals = DSCRenewalHistory.objects.all().order_by('-renewal_date')
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        renewals = renewals.filter(
+            Q(dsc__dsc_number__icontains=search_query) |
+            Q(dsc__full_name__icontains=search_query) |
+            Q(renewed_by__username__icontains=search_query)
+        )
+    
+    # Date filtering
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            renewals = renewals.filter(renewal_date__gte=start_date)
+        except ValueError:
+            messages.error(request, "Invalid start date format. Use YYYY-MM-DD.")
+    
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            renewals = renewals.filter(renewal_date__lte=end_date)
+        except ValueError:
+            messages.error(request, "Invalid end date format. Use YYYY-MM-DD.")
+    
+    # Pagination
+    paginator = Paginator(renewals, 25)  # Show 25 renewals per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get current filter values for the template
+    current_filters = {
+        'search': search_query,
+        'start_date': start_date.strftime('%Y-%m-%d') if start_date else '',
+        'end_date': end_date.strftime('%Y-%m-%d') if end_date else '',
+    }
+    
+    return render(request, 'general_user/all_renewals.html', {
+        'page_obj': page_obj,
+        'total_renewals': renewals.count(),
+        'current_filters': current_filters
+    })

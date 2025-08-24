@@ -39,7 +39,7 @@
                     <a href="#">Tass & Hamjit</a>
                 </div>
             </div>
-            <ul class="sidebar-nav">
+            <ul class="sidebar-nav" style="padding-top: 1rem;">
                 <li class="sidebar-item">
                     <a href="{% url 'admin_dashboard' %}" class="sidebar-link">
                         <i class="lni lni-user"></i>
@@ -118,6 +118,30 @@
                     </ul>
                 </li> -->
                 <li class="sidebar-item">
+                    <a href="#" class="sidebar-link collapsed has-dropdown" data-bs-toggle="collapse"
+                        data-bs-target="#shelfs" aria-expanded="false" aria-controls="shelfs">
+                        <i class="bi bi-archive"></i>
+                        <span>Shelf</span>
+                    </a>
+                    <ul id="shelfs" class="sidebar-dropdown list-unstyled collapse" data-bs-parent="#sidebar">
+                        <li class="sidebar-item">
+                            <a href="{% url 'assign_shelf'%}" class="sidebar-link">
+                                Assign Shelf
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="{% url 'unassign_shelf'%}" class="sidebar-link">        
+                                Unassign Shelf
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="{% url 'shelf_history'%}" class="sidebar-link">
+                                Shelf history
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="sidebar-item">
                     <a href="{% url 'search_dsc'%}" class="sidebar-link">
                         <i class="lni lni-search"></i>
                         <span>Search DSC</span>
@@ -129,6 +153,7 @@
                         <span>Renew DSC</span>
                     </a>
                 </li>
+                
                 <li class="sidebar-item">
                     <a href="{% url 'map_dsc_entity'%}" class="sidebar-link">
                         <i class="fas fa-sitemap"></i>
@@ -166,6 +191,25 @@
                         </li>
                     </ul>
                 </li>
+                <li class="sidebar-item">
+                    <a href="#" class="sidebar-link collapsed has-dropdown" data-bs-toggle="collapse"
+                        data-bs-target="#extrafields" aria-expanded="false" aria-controls="extrafields">
+                        <i class="fas fa-plus-square"></i>
+                        <span>Add Extra Fields</span>
+                    </a>
+                    <ul id="extrafields" class="sidebar-dropdown list-unstyled collapse" data-bs-parent="#sidebar">
+                        <li class="sidebar-item">
+                            <a href="{% url 'manage_extra_fields'%}" class="sidebar-link">
+                                Fields - New Entry
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="{% url 'manage_renewal_fields'%}" class="sidebar-link">        
+                                Fields - Additional Details
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 <!-- <li class="sidebar-item">
                     <a href="{% url 'initiate_dsc'%}" class="sidebar-link">
                         <i class="fas fa-exchange-alt"></i> 
@@ -199,10 +243,13 @@
                         <span>Additional Details</span>
                     </a>
                 </li>
+                
                 <li class="sidebar-item">
-                    <a href="{% url 'manage_extra_fields'%}" class="sidebar-link">
-                        <i class="fas fa-plus-square"></i> 
-                        <span>Additional Fields</span>
+                    <a href="{% url 'bulk_upload_entity'%}" class="sidebar-link">
+                        <i class="fas fa-upload"></i> 
+                        <span>Bulk Upload Entities
+
+                        </span>
                     </a>
                 </li>
                 
@@ -213,22 +260,22 @@
                     </a>
                 </li>                
 
-                <!-- <li class="sidebar-item">
-                    <a href="#" class="sidebar-link">
-                        <i class="lni lni-cog"></i>
-                        <span>Setting</span>
+                <li class="sidebar-item">
+                    <a href="{% url 'logout'%}" class="sidebar-link">
+                        <i class="lni lni-exit"></i>
+                        <span>Logout</span>
                     </a>
-                </li> -->
+                </li>     
                 
                 
             </ul>
-            <div class="sidebar-footer">
+            <!-- <div class="sidebar-footer">
                 <a href="{% url 'logout'%}" class="sidebar-link">
                     <i class="lni lni-exit"></i>
                     <span>Logout</span>
                 </a>
             </div>
-        </aside>
+        </aside> -->
   
         </aside>
         <div class="main p-3">

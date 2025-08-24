@@ -6,6 +6,7 @@
 <div class="container my-5">
     <h2 class="fw-bold text-primary">DSC List</h2>
     <hr>
+    
 
     <!-- Filter and Search Bar -->
     <div class="row mb-3">
@@ -29,6 +30,9 @@
     <div class="mb-3">
         <a href="{% url 'export_dsc_list' format='csv' %}?filter={{ filter_type }}&q={{ query }}" class="btn btn-success">Export as CSV</a>
         <a href="{% url 'export_dsc_list' format='excel' %}?filter={{ filter_type }}&q={{ query }}" class="btn btn-info">Export as Excel</a>
+        {% if user.role == 'admin' %}
+            <a href="{% url 'remove_dscs' %}" class="btn btn-danger" style="text-align: right;margin-left: 883px;">Remove DSC</a>
+        {% endif %}
     </div>
 
     <!-- DSC Table -->

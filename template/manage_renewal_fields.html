@@ -3,12 +3,11 @@
 {% block content %}
 <div class="container my-5">
     <h2 class="fw-bold text-primary">
-        <i class="lni lni-cog me-2"></i>Manage New Entry Additional Fields
+        <i class="lni lni-cog me-2"></i>Manage Additional Detail Fields
     </h2>
     <hr>
     <div class="d-flex justify-content-between align-items-center mb-4">
-        
-        <a href="{% url 'extra_field_create' %}" class="btn btn-success">
+        <a href="{% url 'renewal_field_create' %}" class="btn btn-success">
             <i class="lni lni-plus me-2"></i>Add New Field
         </a>
     </div>
@@ -16,7 +15,7 @@
     <div class="card shadow border-0">
         <div class="card-header bg-primary text-white d-flex align-items-center">
             <i class="lni lni-list me-2 fs-4"></i>
-            <h5 class="m-0">Custom Fields List</h5>
+            <h5 class="m-0">Additional Detail Fields</h5>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -25,9 +24,8 @@
                         <tr class="bg-light">
                             <th class="ps-4">Field Name</th>
                             <th>Type</th>
-                            <th>DSC Type</th>
-                            <th>Label</th>
                             <th>Required</th>
+                            <th>Label</th>
                             <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
@@ -35,19 +33,13 @@
                         {% for field in extra_fields %}
                         <tr>
                             <td class="ps-4 fw-semibold">
-                                {{ field.field_name }}
+                                <code>{{ field.field_name }}</code>
                             </td>
                             <td>
                                 <span class="badge bg-info text-white">
                                     {{ field.get_field_type_display }}
                                 </span>
                             </td>
-                            <td>
-                                <span class="badge bg-secondary text-white">
-                                    {{ field.get_dsc_type_display }}
-                                </span>
-                            </td>
-                            <td>{{ field.label|default:"-" }}</td>
                             <td>
                                 {% if field.required %}
                                 <span class="badge bg-danger text-white">
@@ -59,15 +51,15 @@
                                 </span>
                                 {% endif %}
                             </td>
+                            <td>{{ field.label|default:"-" }}</td>
                             <td class="text-end pe-4">
                                 <div class="btn-group" role="group">
-                                    <a href="{% url 'extra_field_update' field.pk %}" class="btn btn-sm btn-outline-primary me-2">
-                                        <i class="lni lni-pencil"></i>Edit
+                                    <a href="{% url 'renewal_field_update' field.pk %}" class="btn btn-sm btn-outline-primary me-2">
+                                        <i class="lni lni-pencil"></i> Edit
                                     </a>
-                                    <a href="{% url 'extra_field_delete' field.pk %}" class="btn btn-sm btn-danger px-3">
-                                        <i class="lni lni-trash-can"></i>Delete
+                                    <a href="{% url 'renewal_field_delete' field.pk %}" class="btn btn-sm btn-danger px-3">
+                                        <i class="lni lni-trash-can"></i> Delete
                                     </a>
-
                                 </div>
                             </td>
                         </tr>

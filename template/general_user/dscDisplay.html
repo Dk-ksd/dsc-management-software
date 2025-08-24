@@ -23,7 +23,7 @@
         <div class="card-body">
             <div class="row gy-3 gx-4">
                 <div class="col-md-4"><strong>DSC Number:</strong> {{ dsc_master.dsc_number }}</div>
-                <div class="col-md-4"><strong>Type:</strong> {{ dsc_master.dsc_type }}</div>
+                <div class="col-md-4"><strong>DSC Type:</strong> {{ dsc_master.dsc_type }}</div>
                 <div class="col-md-4"><strong>Full Name:</strong> {{ dsc_master.full_name }}</div>
                 <div class="col-md-4"><strong>Issued:</strong> {{ dsc_master.issued_date }}</div>
                 <div class="col-md-4"><strong>License Period:</strong> {{ dsc_master.license_period.no_of_years }} years</div>
@@ -64,7 +64,8 @@
                         <span class="text-muted">None</span>
                     {% endfor %}
                 </div>
-                <div class="col-md-12"><strong>Remarks:</strong> {{ dsc_master.remarks }}</div>
+                <div class="col-md-4"><strong>Type:</strong> {{ dsc_master.type }}</div>
+                <div class="col-md-8"><strong>Remarks:</strong> {{ dsc_master.remarks }}</div>
             </div>
         </div>
     </div>

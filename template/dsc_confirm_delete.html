@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h4>Confirm DSC Deletion</h4>
+        </div>
+        <div class="card-body">
+            <p>You are about to delete the following DSC:</p>
+            <ul>
+                <li><strong>DSC Number:</strong> {{ dsc.dsc_number }}</li>
+                <li><strong>Name:</strong> {{ dsc.full_name }}</li>
+                <li><strong>Issued Date:</strong> {{ dsc.issued_date }}</li>
+                <li><strong>Status:</strong> {{ dsc.status }}</li>
+            </ul>
+            <p class="text-danger"><strong>Warning:</strong> This will permanently delete the DSC and all related records (documents, usage logs, etc.).</p>
+            
+            <form method="POST" action="{% url 'delete_dsc' dsc.dsc_id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Confirm Delete</button>
+                <a href="{% url 'remove_dscs' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

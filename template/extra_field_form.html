@@ -2,42 +2,200 @@
 
 {% block content %}
 <div class="container my-5">
+    <h2 class="fw-bold text-primary">
+        <i class="lni lni-cog me-2"></i>Manage Additional Entry Fields
+    </h2>
+    <hr>
+    
     <div class="card shadow-lg border-0">
         <div class="card-header bg-primary text-white">
             <h4 class="mb-0">
-                {% if object %}<i class="fas fa-edit"></i> Edit{% else %}<i class="fas fa-plus-circle"></i> Add{% endif %} Additional Field
+                {% if object %}
+                    <i class="lni lni-pencil-alt me-2"></i>Edit Entry Field
+                {% else %}
+                    <i class="lni lni-circle-plus me-2"></i>Add New Entry Field
+                {% endif %}
             </h4>
+            
         </div>
 
         <form method="post" class="p-4">
             {% csrf_token %}
             
-            <!-- Form Fields in Grid -->
             <div class="row g-3">
-                {% for field in form %}
+                <!-- Field Name -->
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">{{ field.label_tag }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <small class="form-text text-muted">{{ field.help_text }}</small>
-                    {% endif %}
-                    {% if field.errors %}
-                        <div class="text-danger small">{{ field.errors|striptags }}</div>
-                    {% endif %}
+                    <div class="form-group">
+                        <label class="form-label fw-bold">
+                            Field Name <span class="text-danger">*</span>
+                            <small class="text-muted d-block">Internal identifier (letters, numbers, underscores only)</small>
+                        </label>
+                        {{ form.field_name }}
+                        <div class="form-text">
+                            Example: <code>client_id</code> or <code>project_code</code>
+                        </div>
+                        {% if form.field_name.errors %}
+                            <div class="text-danger small">{{ form.field_name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endfor %}
+
+                <!-- Field Type -->
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label fw-bold">
+                            Field Type <span class="text-danger">*</span>
+                            <small class="text-muted d-block">What type of data will this field store?</small>
+                        </label>
+                        {{ form.field_type }}
+                        <div class="form-text">
+                            <ul class="list-unstyled">
+                                <li><strong>Text</strong>: For names, descriptions, IDs</li>
+                                <li><strong>Number</strong>: For numeric values like amounts</li>
+                                <li><strong>Date</strong>: For issue dates, expiry dates</li>
+                                <li><strong>Boolean</strong>: Yes/No or True/False values</li>
+                            </ul>
+                        </div>
+                        {% if form.field_type.errors %}
+                            <div class="text-danger small">{{ form.field_type.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Display Label -->
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label fw-bold">
+                            Display Label
+                            <small class="text-muted d-block">User-friendly name shown in forms</small>
+                        </label>
+                        {{ form.label }}
+                        
+                        {% if form.label.errors %}
+                            <div class="text-danger small">{{ form.label.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- DSC Type -->
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label fw-bold">
+                            Applies To <span class="text-danger">*</span>
+                            <small class="text-muted d-block">Which forms should include this field?</small>
+                        </label>
+                        {{ form.dsc_type }}
+                        
+                        {% if form.dsc_type.errors %}
+                            <div class="text-danger small">{{ form.dsc_type.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                
+
+                <!-- Required Field -->
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label fw-bold d-block">
+                            Required Field
+                            <small class="text-muted d-block">Is this information mandatory?</small>
+                        </label>
+                        <div class="form-check form-switch mt-2">
+                            {{ form.required }}
+                            <label class="form-check-label" for="{{ form.required.id_for_label }}">
+                                {% if form.required.value %}
+                                    <span class="text-success">Required (users must fill this field)</span>
+                                {% else %}
+                                    <span class="text-muted">Optional</span>
+                                {% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Help Text -->
+                <!-- <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label fw-bold">
+                            Help Text
+                            <small class="text-muted d-block">Guidance for users filling this field</small>
+                        </label>
+                        {{ form.help_text }}
+                        <div class="form-text">
+                            Example: "Enter your client's unique identification number"
+                        </div>
+                        {% if form.help_text.errors %}
+                            <div class="text-danger small">{{ form.help_text.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                </div> -->
             </div>
 
-            <!-- Buttons -->
-            <div class="d-flex justify-content-end mt-4">
-                <button type="submit" class="btn btn-success me-2">
-                    <i class="fas fa-save"></i> Save
-                </button>
-                <a href="{% url 'manage_extra_fields' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-times"></i> Cancel
+            <div class="d-flex justify-content-end mt-3 border-top pt-2">
+                <a href="{% url 'manage_extra_fields' %}" class="btn btn-outline-secondary me-2">
+                    <i class="lni lni-close me-1"></i> Cancel
                 </a>
+                <button type="submit" class="btn btn-success">
+                    <i class="lni lni-save me-1"></i> {% if object %}Update{% else %}Create{% endif %} Field
+                </button>
             </div>
         </form>
     </div>
 </div>
+
+<style>
+    .form-switch .form-check-input {
+        width: 2.5em;
+        height: 1.5em;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    code {
+        background-color: #f8f9fa;
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+        color: #d63384;
+    }
+    .list-unstyled li {
+        margin-bottom: 0.25rem;
+    }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Auto-generate label from field name if empty
+    const fieldNameInput = document.getElementById('{{ form.field_name.id_for_label }}');
+    const labelInput = document.getElementById('{{ form.label.id_for_label }}');
+    
+    if (fieldNameInput && labelInput) {
+        fieldNameInput.addEventListener('blur', function() {
+            if (!labelInput.value && this.value) {
+                labelInput.value = this.value
+                    .replace(/_/g, ' ')
+                    .replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
+            }
+        });
+    }
+
+    // Update required field label when toggled
+    const requiredCheckbox = document.getElementById('{{ form.required.id_for_label }}');
+    const requiredLabel = document.querySelector(`label[for="{{ form.required.id_for_label }}"]`);
+    
+    if (requiredCheckbox && requiredLabel) {
+        requiredCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                requiredLabel.innerHTML = '<span class="text-success">Required (users must fill this field)</span>';
+            } else {
+                requiredLabel.innerHTML = '<span class="text-muted">Optional</span>';
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

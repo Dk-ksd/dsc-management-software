@@ -6,7 +6,12 @@
 <div class="container my-5">
     
         <h2 class="fw-bold text-primary">
-            <i class="bi bi-arrow-repeat me-2"></i>DSC Renewal</h2>
+            <i class="bi bi-arrow-repeat me-2"></i>DSC Renewal</h2> 
+            <li class="nav-item btn btn-secondary ">
+                <a class="nav-link" href="{% url 'all_renewals' %}">
+                    <i class="bi bi-clock-history"></i> All Renewals
+                </a>
+            </li>
         <!-- <i class="lni lni-reload fs-2 text-secondary"></i> -->
     
     <hr />
@@ -24,6 +29,7 @@
     {% endif %}
 
 
+        
     <!-- ✅ Enhanced Scrollable Select Dropdown -->
     <form method="GET" class="mb-4" id="search_form">
         <div class="row g-3">
@@ -59,6 +65,11 @@
                 <button type="submit" class="btn btn-primary mb-1" id="fetch_btn" {% if not request.GET.dsc_number %}disabled{% endif %}>
                     <i class="bi bi-search"></i> Fetch Details
                 </button>
+                        {% if dsc_master and dsc_master.dsc_id %}
+                            <a href="{% url 'renewal_history' dsc_master.dsc_id %}" class="btn btn-info mx-4 mb-1">
+                                <i class="bi bi-clock-history"></i> View History
+                            </a>
+                        {% endif %}
             </div>
         </div>
     </form>

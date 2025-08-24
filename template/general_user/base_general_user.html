@@ -68,6 +68,30 @@
                     </a>
                 </li>
                 <li class="sidebar-item">
+                    <a href="#" class="sidebar-link collapsed has-dropdown" data-bs-toggle="collapse"
+                        data-bs-target="#shelfs" aria-expanded="false" aria-controls="shelfs">
+                        <i class="bi bi-archive"></i>
+                        <span>Shelf</span>
+                    </a>
+                    <ul id="shelfs" class="sidebar-dropdown list-unstyled collapse" data-bs-parent="#sidebar">
+                        <li class="sidebar-item">
+                            <a href="{% url 'general_user_assign_shelf'%}" class="sidebar-link">
+                                Assign Shelf
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="{% url 'general_user_unassign_shelf'%}" class="sidebar-link">        
+                                Unassign Shelf
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a href="{% url 'general_user_shelf_history'%}" class="sidebar-link">
+                                Shelf history
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="sidebar-item">
                     <a href="{% url 'general_user_renewal'%}" class="sidebar-link">
                         <i class="fas fa-redo-alt"></i> 
                         <span>Renew DSC</span>

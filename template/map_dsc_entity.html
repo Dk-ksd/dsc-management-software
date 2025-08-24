@@ -6,15 +6,6 @@
     <h2 class="fw-bold text-primary"><i class="bi bi-link"></i> Map DSC to Entities</h2>
     <hr>
 
-    <!-- Debug Info (can be removed after testing) -->
-    <div class="alert alert-info d-none">
-        Debug Info:<br>
-        Items per page: {{ mappings.paginator.per_page }}<br>
-        Total items: {{ mappings.paginator.count }}<br>
-        Current page: {{ mappings.number }}<br>
-        Total pages: {{ mappings.paginator.num_pages }}
-    </div>
-
     <!-- Display Messages -->
     {% if messages %}
         {% for message in messages %}
@@ -68,8 +59,34 @@
                         {% endif %}
                     </div>
                     <div class="col-md-6">
-                        <label for="id_entity" class="form-label fw-bold">Entity</label>
-                        {{ form.entity }}
+                        <label for="entity_search" class="form-label fw-bold">Entity</label>
+                        <div class="dropdown">
+                            <input type="text" id="entity_search" class="form-control dropdown-toggle" 
+                                   placeholder="Type to search entity"
+                                   data-bs-toggle="dropdown"
+                                   aria-haspopup="true"
+                                   aria-expanded="false"
+                                   autocomplete="off"
+                                   value="{% if form.entity.value %}{{ form.entity.instance.entity_name }}{% endif %}">
+                            <input type="hidden" name="entity" id="id_entity" 
+                                   value="{% if form.entity.value %}{{ form.entity.value }}{% endif %}">
+                            
+                            <div class="dropdown-menu w-100" aria-labelledby="entity_search" id="entity_dropdown">
+                                <div class="dropdown-header">Available Entities ({{ entities.count }} items)</div>
+                                {% for entity in entities %}
+                                    <a class="dropdown-item" href="#" data-value="{{ entity.entity_id }}" 
+                                       data-display="{{ entity.entity_name }}"
+                                       data-search="{{ entity.entity_name|lower }}">
+                                        {{ entity.entity_name }}
+                                        {% if entity.entity_code %}
+                                            <small class="text-muted ms-2">({{ entity.entity_code }})</small>
+                                        {% endif %}
+                                    </a>
+                                {% empty %}
+                                    <a class="dropdown-item disabled" href="#">No entities available</a>
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% if form.entity.errors %}
                             <div class="text-danger">{{ form.entity.errors }}</div>
                         {% endif %}
@@ -83,22 +100,67 @@
     </div>
 
     <!-- Mapped DSC-Entities Table -->
-    <h3 class="text-primary mt-4"><i class="bi bi-list-ul"></i> Mapped DSC-Entities</h3>
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <h3 class="text-primary mb-0"><i class="bi bi-list-ul"></i> Mapped DSC-Entities</h3>
+        <button class="btn btn-sm btn-outline-primary" id="toggleSearchBtn">
+            <i class="bi bi-search"></i> Search Filter
+        </button>
+    </div>
 
-    <!-- Select Entity Filter -->
-    <form method="GET" class="mb-3">
-        <label for="entityFilter" class="fw-bold">Filter by Entity:</label>
-        <select name="entity_id" id="entityFilter" class="form-select" onchange="this.form.submit()">
-            <option value="">-- Select Entity --</option>
-            {% for entity in entities %}
-                <option value="{{ entity.entity_id }}" {% if selected_entity_id|slugify == entity.entity_id|slugify %}selected{% endif %}>
-                    {{ entity.entity_name }}
-                </option>
-            {% endfor %}
-        </select>
-    </form>
+    <!-- Search Filter Card (initially hidden) -->
+    <div class="card shadow-sm border-0 mt-3 mb-3 d-none" id="searchFilterCard">
+        <div class="card-header bg-light fw-bold">
+            <i class="bi bi-funnel"></i> Filter Mappings
+        </div>
+        <div class="card-body">
+            <form method="GET" id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="filter_entity_search" class="form-label fw-bold">Filter by Entity</label>
+                        <div class="dropdown">
+                            <input type="text" id="filter_entity_search" class="form-control dropdown-toggle" 
+                                   placeholder="Type to search entity"
+                                   data-bs-toggle="dropdown"
+                                   aria-haspopup="true"
+                                   aria-expanded="false"
+                                   autocomplete="off"
+                                   value="{% if selected_entity_id %}{{ selected_entity.entity_name }}{% endif %}">
+                            <input type="hidden" name="entity_id" id="filter_entity_id" 
+                                   value="{% if selected_entity_id %}{{ selected_entity_id }}{% endif %}">
+                            
+                            <div class="dropdown-menu w-100" aria-labelledby="filter_entity_search" id="filter_entity_dropdown">
+                                <div class="dropdown-header">Available Entities ({{ entities.count }} items)</div>
+                                <a class="dropdown-item" href="#" data-value="" data-display="All Entities">All Entities</a>
+                                {% for entity in entities %}
+                                    <a class="dropdown-item" href="#" data-value="{{ entity.entity_id }}" 
+                                       data-display="{{ entity.entity_name }}"
+                                       data-search="{{ entity.entity_name|lower }}">
+                                        {{ entity.entity_name }}
+                                        {% if entity.entity_code %}
+                                            <small class="text-muted ms-2">({{ entity.entity_code }})</small>
+                                        {% endif %}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12 d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="bi bi-filter"></i> Apply Filter
+                        </button>
+                        <a href="{% url 'map_dsc_entity' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive mt-3">
         <table class="table table-sm table-hover table-bordered align-middle text-center">
             <thead class="table-dark">
                 <tr>
@@ -135,51 +197,6 @@
             </tbody>
         </table>
     </div>
-
-    <!-- Pagination Controls - Now Visible -->
-    <!-- {% if mappings.paginator.num_pages > 1 %}
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center">
-                    {% if mappings.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page=1" aria-label="First">
-                                <span aria-hidden="true">&laquo;&laquo;</span>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ mappings.previous_page_number }}" aria-label="Previous">
-                                <span aria-hidden="true">&laquo;</span>
-                            </a>
-                        </li>
-                    {% endif %}
-
-                    {% for num in mappings.paginator.page_range %}
-                        {% if num >= mappings.number|add:-2 and num <= mappings.number|add:2 %}
-                            <li class="page-item {% if num == mappings.number %}active{% endif %}">
-                                <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ num }}">{{ num }}</a>
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if mappings.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ mappings.next_page_number }}" aria-label="Next">
-                                <span aria-hidden="true">&raquo;</span>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?{% if selected_entity_id %}entity_id={{ selected_entity_id }}&{% endif %}page={{ mappings.paginator.num_pages }}" aria-label="Last">
-                                <span aria-hidden="true">&raquo;&raquo;</span>
-                            </a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
-    </div>
-    {% endif %} -->
 </div>
 
 <script>
@@ -224,10 +241,126 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    // Close dropdown when clicking outside
+    // Entity Search Dropdown Functionality
+    const entitySearchInput = document.getElementById('entity_search');
+    const entityHiddenInput = document.getElementById('id_entity');
+    const entityDropdownMenu = document.getElementById('entity_dropdown');
+    const entityDropdownItems = entityDropdownMenu.querySelectorAll('.dropdown-item:not(.dropdown-header)');
+
+    // Initialize with selected entity if exists
+    if (entityHiddenInput.value) {
+        const selectedItem = Array.from(entityDropdownItems).find(item => 
+            item.getAttribute('data-value') === entityHiddenInput.value
+        );
+        if (selectedItem) {
+            entitySearchInput.value = selectedItem.getAttribute('data-display');
+        }
+    }
+
+    // Filter dropdown items based on search input
+    entitySearchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        entityDropdownItems.forEach(item => {
+            const searchText = item.getAttribute('data-search');
+            item.style.display = searchText.includes(searchTerm) ? 'block' : 'none';
+        });
+        
+        if (searchTerm.length > 0) {
+            bootstrap.Dropdown.getOrCreateInstance(entitySearchInput).show();
+        }
+    });
+
+    // Handle item selection
+    entityDropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            entitySearchInput.value = this.getAttribute('data-display');
+            entityHiddenInput.value = this.getAttribute('data-value');
+            bootstrap.Dropdown.getOrCreateInstance(entitySearchInput).hide();
+        });
+    });
+
+    // Clear search when dropdown is closed
+    entitySearchInput.addEventListener('hide.bs.dropdown', function() {
+        if (!entityHiddenInput.value) {
+            entitySearchInput.value = '';
+        }
+        entityDropdownItems.forEach(item => {
+            item.style.display = 'block';
+        });
+    });
+
+    // Filter Entity Search Dropdown Functionality
+    const filterEntitySearchInput = document.getElementById('filter_entity_search');
+    const filterEntityHiddenInput = document.getElementById('filter_entity_id');
+    const filterEntityDropdownMenu = document.getElementById('filter_entity_dropdown');
+    const filterEntityDropdownItems = filterEntityDropdownMenu.querySelectorAll('.dropdown-item:not(.dropdown-header)');
+
+    // Initialize with selected entity if exists
+    if (filterEntityHiddenInput.value) {
+        const selectedItem = Array.from(filterEntityDropdownItems).find(item => 
+            item.getAttribute('data-value') === filterEntityHiddenInput.value
+        );
+        if (selectedItem) {
+            filterEntitySearchInput.value = selectedItem.getAttribute('data-display');
+        }
+    }
+
+    // Filter dropdown items based on search input
+    filterEntitySearchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        filterEntityDropdownItems.forEach(item => {
+            const searchText = item.getAttribute('data-search') || '';
+            item.style.display = searchText.includes(searchTerm) ? 'block' : 'none';
+        });
+        
+        if (searchTerm.length > 0) {
+            bootstrap.Dropdown.getOrCreateInstance(filterEntitySearchInput).show();
+        }
+    });
+
+    // Handle item selection
+    filterEntityDropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            filterEntitySearchInput.value = this.getAttribute('data-display');
+            filterEntityHiddenInput.value = this.getAttribute('data-value');
+            bootstrap.Dropdown.getOrCreateInstance(filterEntitySearchInput).hide();
+        });
+    });
+
+    // Toggle search filter visibility
+    const toggleSearchBtn = document.getElementById('toggleSearchBtn');
+    const searchFilterCard = document.getElementById('searchFilterCard');
+    
+    toggleSearchBtn.addEventListener('click', function() {
+        searchFilterCard.classList.toggle('d-none');
+        const icon = this.querySelector('i');
+        if (searchFilterCard.classList.contains('d-none')) {
+            icon.classList.remove('bi-x');
+            icon.classList.add('bi-search');
+            this.classList.remove('btn-primary');
+            this.classList.add('btn-outline-primary');
+        } else {
+            icon.classList.remove('bi-search');
+            icon.classList.add('bi-x');
+            this.classList.remove('btn-outline-primary');
+            this.classList.add('btn-primary');
+        }
+    });
+
+    // Close dropdowns when clicking outside
     document.addEventListener('click', function(e) {
         if (!searchInput.contains(e.target) && !dropdownMenu.contains(e.target)) {
             bootstrap.Dropdown.getOrCreateInstance(searchInput).hide();
+        }
+        if (!entitySearchInput.contains(e.target) && !entityDropdownMenu.contains(e.target)) {
+            bootstrap.Dropdown.getOrCreateInstance(entitySearchInput).hide();
+        }
+        if (!filterEntitySearchInput.contains(e.target) && !filterEntityDropdownMenu.contains(e.target)) {
+            bootstrap.Dropdown.getOrCreateInstance(filterEntitySearchInput).hide();
         }
     });
 
@@ -240,28 +373,38 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 <style>
-    /* Custom styles for the scrollable dropdown */
-    #dsc_dropdown {
+    /* Custom styles for the scrollable dropdowns */
+    #dsc_dropdown,
+    #entity_dropdown,
+    #filter_entity_dropdown {
         max-height: 300px;
         overflow-y: auto;
         scrollbar-width: thin;
     }
     
-    #dsc_dropdown::-webkit-scrollbar {
+    #dsc_dropdown::-webkit-scrollbar,
+    #entity_dropdown::-webkit-scrollbar,
+    #filter_entity_dropdown::-webkit-scrollbar {
         width: 8px;
     }
     
-    #dsc_dropdown::-webkit-scrollbar-track {
+    #dsc_dropdown::-webkit-scrollbar-track,
+    #entity_dropdown::-webkit-scrollbar-track,
+    #filter_entity_dropdown::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 4px;
     }
     
-    #dsc_dropdown::-webkit-scrollbar-thumb {
+    #dsc_dropdown::-webkit-scrollbar-thumb,
+    #entity_dropdown::-webkit-scrollbar-thumb,
+    #filter_entity_dropdown::-webkit-scrollbar-thumb {
         background: #888;
         border-radius: 4px;
     }
     
-    #dsc_dropdown::-webkit-scrollbar-thumb:hover {
+    #dsc_dropdown::-webkit-scrollbar-thumb:hover,
+    #entity_dropdown::-webkit-scrollbar-thumb:hover,
+    #filter_entity_dropdown::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
     
@@ -291,49 +434,25 @@ document.addEventListener("DOMContentLoaded", function () {
         cursor: pointer;
     }
     
-    /* Enhanced Pagination Styles */
-    .pagination {
-        margin: 20px 0;
-        display: flex;
-        padding: 10px;
-        background-color: #f8f9fa;
-        border-radius: 5px;
+    /* Badge styles */
+    .badge {
+        font-size: 0.9em;
+        padding: 0.5em 0.75em;
     }
     
-    .page-item.active .page-link {
-        background-color: #0d6efd;
-        border-color: #0d6efd;
-        color: white;
-    }
-    
-    .page-link {
-        color: #0d6efd;
-        padding: 8px 16px;
-        border: 1px solid #dee2e6;
-        margin: 0 2px;
-        font-weight: 500;
-    }
-    
-    .page-link:hover {
-        background-color: #e9ecef;
-        color: #0a58ca;
-        text-decoration: none;
-    }
-    
-    .page-item.disabled .page-link {
-        color: #6c757d;
-        pointer-events: none;
+    /* Search filter toggle button */
+    #toggleSearchBtn i {
+        transition: all 0.2s ease;
     }
     
     /* Responsive adjustments */
     @media (max-width: 768px) {
-        .pagination {
-            flex-wrap: wrap;
-            justify-content: center;
+        .card-body .row > div {
+            margin-bottom: 1rem;
         }
         
-        .page-item {
-            margin: 2px;
+        #searchFilterCard .row.g-3 > div {
+            margin-bottom: 1rem;
         }
     }
 </style>

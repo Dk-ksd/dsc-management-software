@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Confirm DSC Deletion{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h2 class="fw-bold mb-0">
+                <i class="fas fa-exclamation-triangle"></i> Confirm DSC Deletion
+            </h2>
+        </div>
+        <div class="card-body">
+            {% if not is_latest %}
+            <div class="alert alert-danger">
+                <h4><i class="fas fa-ban"></i> Deletion Restricted</h4>
+                <p>You can only delete the most recently added DSC. This is not the latest DSC entry.</p>
+                <a href="{% url 'remove_dscs' %}" class="btn btn-secondary mt-2">
+                    <i class="fas fa-arrow-left"></i> Back to DSC List
+                </a>
+            </div>
+            {% else %}
+            <h4 class="text-danger">You are about to permanently delete this DSC:</h4>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <strong>DSC Details</strong>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>DSC Number:</strong> {{ dsc.dsc_number }}</p>
+                            <p><strong>Full Name:</strong> {{ dsc.full_name }}</p>
+                            <p><strong>Issued Date:</strong> {{ dsc.issued_date }}</p>
+                            <p><strong>Expiry Date:</strong> {{ dsc.expiry_date }}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="badge bg-{% if dsc.status == 'Active' %}success{% else %}danger{% endif %}">
+                                    {{ dsc.status }}
+                                </span>
+                            </p>
+                            <div class="alert alert-warning mt-3">
+                                <i class="fas fa-info-circle"></i> This is the most recent DSC entry
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <strong>Warning</strong>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-danger">
+                                <i class="fas fa-exclamation-circle"></i> This action cannot be undone!
+                            </p>
+                            <p>The following related items will also be deleted:</p>
+                            <ul>
+                                <li>All associated documents</li>
+                                <li>Usage history records</li>
+                                <li>In/Out transaction logs</li>
+                                <li>Shelf assignment records</li>
+                                <li>Renewal information</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <form method="POST" action="{% url 'delete_dsc' dsc.dsc_id %}">
+                {% csrf_token %}
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{% url 'remove_dscs' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt"></i> Confirm Delete
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

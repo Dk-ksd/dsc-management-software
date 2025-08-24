@@ -1,5 +1,5 @@
 from django import forms
-from .models import DSC_class,Platform,IssuingAuth, Entity, LicensePeriod, Forms, Type, Status, DSCMaster, InOut, Docs, Shelf, DSCRenewal,UsageLogs, DSCEntity, CustomUser, DSCExtraField,DSCExtraData,EmailTemplate
+from .models import DSC_class,Platform,IssuingAuth, Entity, LicensePeriod, Forms, Type, Status, DSCMaster, InOut, Docs, Shelf, DSCRenewal,UsageLogs, DSCEntity, CustomUser, DSCExtraField,DSCExtraData,EmailTemplate,ShelfAssignment,RenewalExtraField
 from django.shortcuts import render, get_object_or_404
 import re
 from django.contrib.auth.forms import AuthenticationForm
@@ -358,8 +358,8 @@ class InternalDSCForm(forms.ModelForm):
         if not password:  
             raise ValidationError("❌ Password is required.")
         if password:
-            if len(password) < 8:
-                raise ValidationError("❌ Password must be at least 8 characters long.")
+            if len(password) < 6:
+                raise ValidationError("❌ Password must be at least 6 characters long.")
             if not any(char.isdigit() for char in password):
                 raise ValidationError("❌ Password must contain at least one number.")
             if not any(char.isalpha() for char in password):
@@ -432,6 +432,33 @@ class ExternalDSCForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Auto-generate external DSC number
+        try:
+            external_type = Type.objects.get(type_name='External')
+            last_external_dsc = DSCMaster.objects.filter(dsc_type=external_type).order_by('-dsc_id').first()
+            
+            if last_external_dsc and last_external_dsc.dsc_number:
+                # Extract numeric part if the format is like "E001"
+                if last_external_dsc.dsc_number.startswith('E'):
+                    try:
+                        last_num = int(last_external_dsc.dsc_number[1:])
+                        next_dsc_number = f"E{last_num + 1:04d}"  # Format as E0002, E0003, etc.
+                    except ValueError:
+                        # Fallback if number parsing fails
+                        next_dsc_number = "E0001"
+                else:
+                    next_dsc_number = "E0001"
+            else:
+                # First external DSC
+                next_dsc_number = "E0001"
+                
+            # Set initial value and make field readonly
+            self.fields['dsc_number'].initial = next_dsc_number
+            self.fields['dsc_number'].widget.attrs['readonly'] = True
+            
+        except (Type.DoesNotExist, ValueError):
+            # Handle exceptions
+            pass
 
         self.extra_fields = DSCExtraField.objects.filter(
             Q(dsc_type='external') | Q(dsc_type='both')
@@ -509,14 +536,13 @@ class ExternalDSCForm(forms.ModelForm):
         password = self.cleaned_data.get('password')
         if not password:  
             raise ValidationError("❌ Password is required.")
-        if len(password) < 8:
-            raise ValidationError("❌ Password must be at least 8 characters.")
-        if not any(char.isdigit() for char in password):
-            raise ValidationError("❌ Password must contain at least one number.")
-        if not any(char.isalpha() for char in password):
-            raise ValidationError("❌ Password must contain at least one letter.")
-        if not any(char in "!@#$%^&*()-_=+[]{}|;:'\",.<>?/~`" for char in password):
-            raise ValidationError("❌ Password must contain at least one special character.")
+        # Check if password contains only digits
+        # if not password.isdigit():
+        #     raise ValidationError("❌ Password must contain numbers only.")
+        if len(password) < 6:
+            raise ValidationError("❌ Password must be at least 6 characters.")
+
+
         return password
 
         # ✅ PAN Number Validation
@@ -563,9 +589,10 @@ class ExternalDSCForm(forms.ModelForm):
         return issued_date
     
     def clean_remarks(self):
-        password = self.cleaned_data.get('remarks')
-        if not password:  
+        remarks = self.cleaned_data.get('remarks')
+        if not remarks:  
             raise ValidationError("❌ Remarks is required.")
+        return remarks
         
     def clean(self):
         cleaned_data = super().clean()
@@ -651,19 +678,6 @@ class DSCEntityForm(forms.ModelForm):
         model = DSCEntity
         fields = ['dsc_number', 'entity']
 
-
-
-class DSCRenewalForm(forms.ModelForm):
-    class Meta:
-        model = DSCRenewal
-        fields = ['shelf_no', 'gst_reg_date', 'it_reg_date', 'mca_reg_date', 'remarks']
-        widgets = {
-            'shelf_no': forms.Select(attrs={'class': 'form-select'}),
-            'gst_reg_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'it_reg_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'mca_reg_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'remarks': forms.Textarea(attrs={'rows': 1, 'class': 'form-control'}),
-        }
 
 
 
@@ -868,3 +882,129 @@ class EmailTemplateForm(forms.ModelForm):
         help_texts = {
             'body': 'Available variables: {full_name}, {dsc_number}, {expiry_date}'
         }
+
+
+class AssignShelfForm(forms.ModelForm):
+    class Meta:
+        model = ShelfAssignment
+        fields = ['shelf_no', 'remarks']
+        widgets = {
+            'shelf_no': forms.Select(attrs={'class': 'form-select'}),
+            'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'shelf_no': 'Shelf Number',
+            'remarks': 'Assignment Remarks',
+        }
+
+class UnassignShelfForm(forms.ModelForm):
+    class Meta:
+        model = ShelfAssignment
+        fields = ['remarks']
+        widgets = {
+            'remarks': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Enter reason for unassigning this shelf...'
+            })
+        }
+
+class BulkDSCUploadForm(forms.Form):
+    DSC_TYPE_CHOICES = [
+        ('internal', 'Internal'),
+        ('external', 'External'),
+    ]
+    
+    dsc_type = forms.ChoiceField(
+        choices=DSC_TYPE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    upload_file = forms.FileField(
+        label='Select CSV/Excel file',
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.csv,.xlsx,.xls'})
+    )
+    
+    def clean_upload_file(self):
+        file = self.cleaned_data.get('upload_file')
+        if file:
+            ext = file.name.split('.')[-1].lower()
+            if ext not in ['csv', 'xlsx', 'xls']:
+                raise ValidationError("Only CSV or Excel files are allowed.")
+        return file
+    
+
+class DSCRenewalForm(forms.ModelForm):
+    class Meta:
+        model = DSCRenewal
+        fields = ['gst_reg_date', 'it_reg_date', 'mca_reg_date', 'remarks']
+        widgets = {
+            'it_reg_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'mca_reg_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'remarks': forms.Textarea(attrs={'rows': 1, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Add dynamic fields from RenewalExtraField
+        for field in RenewalExtraField.objects.all().order_by('field_name'):
+            field_args = {
+                'required': field.required,
+                'label': field.label or field.field_name.replace('_', ' ').title(),
+                'help_text': field.help_text,
+            }
+
+            if field.field_type == "number":
+                self.fields[field.field_name] = forms.IntegerField(**field_args)
+            elif field.field_type == "date":
+                self.fields[field.field_name] = forms.DateField(
+                    **field_args,
+                    widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+                )
+            elif field.field_type == "boolean":
+                self.fields[field.field_name] = forms.BooleanField(
+                    required=False,
+                    widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+                    label=field_args['label']
+                )
+            else:
+                self.fields[field.field_name] = forms.CharField(
+                    **field_args,
+                    widget=forms.TextInput(attrs={'class': 'form-control'})
+                )
+
+            # Set initial value if editing
+            if self.instance and field.field_name in self.instance.extra_fields:
+                self.initial[field.field_name] = self.instance.extra_fields[field.field_name]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # Save extra fields to JSON field
+        instance.extra_fields = {}
+        for field in RenewalExtraField.objects.all():
+            field_name = field.field_name
+            if field_name in self.cleaned_data:
+                value = self.cleaned_data[field_name]
+                if field.field_type == "boolean":
+                    value = bool(value)
+                instance.extra_fields[field_name] = value
+        
+        if commit:
+            instance.save()
+        return instance
+    
+
+class BulkEntityUploadForm(forms.Form):
+    upload_file = forms.FileField(
+        label='Select CSV/Excel file',
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.csv,.xlsx,.xls'})
+    )
+    
+    def clean_upload_file(self):
+        file = self.cleaned_data.get('upload_file')
+        if file:
+            ext = file.name.split('.')[-1].lower()
+            if ext not in ['csv', 'xlsx', 'xls']:
+                raise ValidationError("Only CSV or Excel files are allowed.")
+        return file

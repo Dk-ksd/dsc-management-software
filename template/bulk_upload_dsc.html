@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Bulk Upload DSCs</h2>
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.dsc_type.label_tag }}
+                    {{ form.dsc_type }}
+                </div>
+                <div class="mb-3">
+                    {{ form.upload_file.label_tag }}
+                    {{ form.upload_file }}
+                    <div class="form-text">Upload CSV or Excel file</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload</button>
+                <a href="{% url 'download_bulk_template' %}?type=internal" class="btn btn-secondary ms-2">
+                    Download Internal Template
+                </a>
+                <a href="{% url 'download_bulk_template' %}?type=external" class="btn btn-secondary ms-2">
+                    Download External Template
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

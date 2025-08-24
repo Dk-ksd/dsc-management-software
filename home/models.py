@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import FileExtensionValidator
 from django.db.models import Q
 from django.core.exceptions import ValidationError
+import datetime
 # Create your models here.
 
 class CustomUser(AbstractUser):
@@ -50,7 +51,7 @@ class IssuingAuth(models.Model):
 
 class Entity(models.Model):
     entity_id = models.AutoField(primary_key=True)
-    entity_name = models.CharField(max_length=50, unique=True)
+    entity_name = models.CharField(max_length=500, unique=True)
 
 
     def __str__(self):
@@ -117,7 +118,7 @@ class Shelf(models.Model):
         return self.shelf_no    
 
 
-
+    
 class DSCMaster(models.Model):
     STATUS_CHOICES = [
         ('Active', 'Active'),
@@ -162,6 +163,35 @@ class DSCMaster(models.Model):
     def __str__(self):
         return f"{self.dsc_number} - {self.full_name}"
 
+    # In your models.py, add to DSCMaster class
+    @property
+    def current_direction(self):
+        """Returns 'in' or 'out' based on the latest completed transaction"""
+        latest_completed = self.inout_set.filter(action_completed=True).order_by('-in_out_id').first()
+        return latest_completed.direction if latest_completed else 'in'
+    
+    def delete(self, *args, **kwargs):
+        """Override delete to handle related objects"""
+        # Delete related documents first
+        self.documents.all().delete()
+        
+        # Delete related DSCEntity mappings
+        self.dscentity_set.all().delete()
+        
+        # Delete related InOut records
+        self.inout_set.all().delete()
+        
+        # Delete related UsageLogs
+        self.usagelogs_set.all().delete()
+        
+        # Delete related ShelfAssignments
+        self.shelfassignment_set.all().delete()
+        
+        # Delete related DSCRenewal records
+        self.renewals.all().delete()
+        
+        # Now delete the DSC itself
+        super().delete(*args, **kwargs)
 
 
 
@@ -235,22 +265,6 @@ class InOut(models.Model):
     def __str__(self):
         return f"{self.dsc_number} ({self.direction}) - Initiated: {self.initiated}, Completed: {self.action_completed}"
 
-
-
-
-
-class DSCRenewal(models.Model):
-    additional_id = models.AutoField(primary_key=True)  # Unique identifier for the renewal entry
-    dsc_number = models.ForeignKey('DSCMaster', on_delete=models.CASCADE, related_name="renewals")
-  # Link to DSCMaster
-    shelf_no = models.ForeignKey(Shelf, on_delete=models.SET_NULL, null=True, blank=True)  # Select shelf number
-    gst_reg_date = models.DateField(blank=True, null=True)
-    it_reg_date = models.DateField(blank=True, null=True)
-    mca_reg_date = models.DateField(blank=True, null=True)
-    remarks = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"Renewal Details for {self.dsc_number.dsc_number}"
 
 
 class UsageLogs(models.Model):
@@ -335,3 +349,155 @@ class EmailTemplate(models.Model):
 
     def __str__(self):
         return self.get_template_type_display()
+    
+
+class DSCRenewal(models.Model):
+    additional_id = models.AutoField(primary_key=True)
+    dsc_number = models.ForeignKey('DSCMaster', on_delete=models.CASCADE, related_name="renewals")
+    gst_reg_date = models.DateField(blank=True, null=True)
+    it_reg_date = models.DateField(blank=True, null=True)
+    mca_reg_date = models.DateField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    
+    # Store additional fields in JSON
+    extra_fields = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"Renewal Details for {self.dsc_number.dsc_number}"
+
+class RenewalExtraField(models.Model):
+    FIELD_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('number', 'Number'),
+        ('date', 'Date'),
+        ('boolean', 'Boolean'),
+    ]
+    
+    field_name = models.CharField(max_length=100, unique=True)
+    field_type = models.CharField(max_length=20, choices=FIELD_TYPE_CHOICES)
+    required = models.BooleanField(default=False)
+    label = models.CharField(max_length=100, blank=True, null=True)
+    help_text = models.CharField(max_length=200, blank=True, null=True)
+
+    def clean(self):
+        if not self.field_name.isidentifier():
+            raise ValidationError("Field name must be a valid Python identifier (letters, numbers, underscores)")
+    
+    def __str__(self):
+        return f"{self.label or self.field_name} ({self.get_field_type_display()})"
+    
+    
+class ShelfAssignment(models.Model):
+    ACTION_CHOICES = [
+        ('assign', 'Assign'),
+        ('unassign', 'Unassign'),
+    ]
+    
+    assignment_id = models.AutoField(primary_key=True)
+    dsc_number = models.ForeignKey(DSCMaster, on_delete=models.CASCADE)
+    shelf_no = models.ForeignKey(Shelf, on_delete=models.CASCADE)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    remarks = models.TextField()
+    action_date = models.DateTimeField(auto_now_add=True)
+    action_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-action_date']
+        
+    def __str__(self):
+        return f"{self.dsc_number.dsc_number} - {self.shelf_no.shelf_no} ({self.action})"
+
+
+class DSCRenewalHistory(models.Model):
+    dsc = models.ForeignKey(DSCMaster, on_delete=models.CASCADE, related_name='renewal_history')
+    renewed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    renewal_date = models.DateTimeField(auto_now_add=True)
+    previous_data = models.JSONField(default=dict)
+    new_data = models.JSONField(default=dict)
+    previous_documents = models.JSONField(default=dict)
+    new_documents = models.JSONField(default=dict)
+    document_changes = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ['-renewal_date']
+        verbose_name_plural = "DSC Renewal Histories"
+
+    def save(self, *args, **kwargs):
+        # Calculate document changes before saving
+        self.document_changes = self.calculate_document_changes()
+        super().save(*args, **kwargs)
+
+    def calculate_document_changes(self):
+        changes = {}
+        doc_types = ['aadhar', 'pan', 'pp']
+        
+        for doc_type in doc_types:
+            old = self.previous_documents.get(doc_type)
+            new = self.new_documents.get(doc_type)
+            
+            if not old and new:
+                changes[doc_type] = 'added'
+            elif old and not new:
+                changes[doc_type] = 'removed'
+            elif old != new:
+                changes[doc_type] = 'modified'
+            else:
+                changes[doc_type] = 'unchanged'
+                
+        return changes
+
+    def __str__(self):
+        return f"Renewal #{self.id} for {self.dsc.dsc_number}"
+        
+    def get_field_changes(self):
+        changes = []
+        all_fields = set(self.previous_data.keys()).union(set(self.new_data.keys()))
+        
+        for field in all_fields:
+            old_value = self.previous_data.get(field)
+            new_value = self.new_data.get(field)
+            
+            if old_value != new_value:
+                # Format dates
+                if field.endswith('date') or field.endswith('_date'):
+                    try:
+                        if old_value:
+                            if isinstance(old_value, str):
+                                old_value = datetime.strptime(old_value, '%Y-%m-%d').strftime('%d %b %Y')
+                            else:
+                                old_value = old_value.strftime('%d %b %Y')
+                    except:
+                        pass
+                    
+                    try:
+                        if new_value:
+                            if isinstance(new_value, str):
+                                new_value = datetime.strptime(new_value, '%Y-%m-%d').strftime('%d %b %Y')
+                            else:
+                                new_value = new_value.strftime('%d %b %Y')
+                    except:
+                        pass
+                
+                # Handle password fields
+                if field == 'password':
+                    old_value = '********' if old_value else None
+                    new_value = '********' if new_value else None
+                
+                # Handle license period
+                if field == 'license_period':
+                    try:
+                        if old_value:
+                            old_value = f"{LicensePeriod.objects.get(license_id=old_value).no_of_years} years"
+                        if new_value:
+                            new_value = f"{LicensePeriod.objects.get(license_id=new_value).no_of_years} years"
+                    except LicensePeriod.DoesNotExist:
+                        pass
+                
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old': old_value if old_value is not None else '-',
+                    'new': new_value if new_value is not None else '-'
+                })
+        
+        return changes

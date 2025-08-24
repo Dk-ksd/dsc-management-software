@@ -163,4 +163,34 @@ urlpatterns = [
     path('approve-usage-log/<int:log_id>/', views.approve_usage_log, name='approve_usage_log'),
     path('reject-usage-log/<int:log_id>/', views.reject_usage_log, name='reject_usage_log'),
 
-]
+##modification
+
+    path('shelf-history/', views.shelf_history, name='shelf_history'),
+    path('assign-shelf/', views.assign_shelf, name='assign_shelf'),
+    path('unassign-shelf/', views.unassign_shelf, name='unassign_shelf'),
+
+    path('general_user_shelf_history/', views.general_user_shelf_history, name='general_user_shelf_history'),
+    path('general_user_assign_shelf/', views.general_user_assign_shelf, name='general_user_assign_shelf'),
+    path('general_user_unassign_shelf/', views.general_user_unassign_shelf, name='general_user_unassign_shelf'),
+    path('bulk-upload-dsc/', views.bulk_upload_dsc, name='bulk_upload_dsc'),
+    path('download-bulk-template/', views.download_bulk_template, name='download_bulk_template'),
+
+    path('manage-renewal-fields/', views.RenewalFieldListView.as_view(), name='manage_renewal_fields'),
+    path('renewal-field/add/', views.RenewalFieldCreateView.as_view(), name='renewal_field_create'),
+    path('renewal-field/<int:pk>/edit/', views.RenewalFieldUpdateView.as_view(), name='renewal_field_update'),
+    path('renewal-field/<int:pk>/delete/', views.RenewalFieldDeleteView.as_view(), name='renewal_field_delete'),
+
+    path('bulk-upload-entity/', views.bulk_upload_entity, name='bulk_upload_entity'),
+    path('download-entity-template/', views.download_entity_template, name='download_entity_template'),
+
+    path('renewal-history/<int:dsc_id>/', views.renewal_history, name='renewal_history'),
+    path('genera-user-renewal-history/<int:dsc_id>/', views.general_user_renewal_history, name='general_user_renewal_history'),
+    path('all-renewals/', views.all_renewals, name='all_renewals'),
+    path('genera-user-all-renewals/', views.general_user_all_renewals, name='general_user_all_renewals'),
+
+    path('remove-dsc/', views.remove_dscs, name='remove_dscs'),
+    path('confirm-delete-dsc/<int:id>/', views.confirm_delete_dsc, name='confirm_delete_dsc'),
+    path('delete-dsc/<int:id>/', views.delete_dsc, name='delete_dsc'),
+
+
+]   
